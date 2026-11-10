@@ -8,7 +8,7 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.0.5"
+const VERSION = "0.0.6"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
@@ -241,7 +241,53 @@ function applySelection(ver) {
 
 /* ---------- 选中即生效 ---------- */
 let loaded = {}
+/* ---------- 写入队列 ----------
+   magpie 对 options.set 限流：每页每秒最多 1 次；且沙箱 iframe（不透明源）里
+   父页面的回执可能永远收不到——但父页面是【先落盘、后发回执】，所以回执丢了
+   不等于写入失败。策略：
+   - 乐观提交：界面立即按写入后的状态走（脏标记立刻清零，绝不卡 6 秒）
+   - 后台串行队列：≥1.1s 间隔落盘，期间多次改动自动合并为最新一份
+   - 撞限流自动退避重试 */
 let bridgeOk = false
+const IS_FRAME = (() => { try { return window.parent !== window } catch { return true } })()
+
+let qState = null, qTimer = null, qBusy = false, qLast = 0
+
+function queueWrite(next) {
+  qState = next
+  if (qBusy) return
+  const wait = Math.max(0, 1100 - (Date.now() - qLast))
+  clearTimeout(qTimer)
+  qTimer = setTimeout(flushWrite, wait)
+}
+
+async function flushWrite() {
+  if (qBusy || qState == null) return
+  qBusy = true
+  const next = qState
+  qState = null
+  qLast = Date.now()
+  let err = null
+  try {
+    const got = await withTimeout(magpie.options.set(next), 4000, "set 无回执")
+    if (got && typeof got === "object") loaded = got
+  } catch (e) { err = e }
+  qBusy = false
+  if (err && /once a second|一秒/.test(String(err && err.message || err))) {
+    qState = next            // 撞限流：退避后重试同一份
+  } else if (err) {
+    // 回执丢失 ≠ 写入失败，界面保持乐观状态，不打扰用户
+    console.warn("poxian: set 无回执（大概率已生效）:", (err && err.message) || err)
+  }
+  // 用户在后台写入期间又动了表单：保留界面等下一次保存；否则按最终状态归一
+  const dirtyNow = !sameOptions(formToOptions(), loaded)
+  if (!dirtyNow) {
+    writeLSopts(loaded)
+    optionsToForm(loaded)
+  }
+  sync()
+  if (qState != null) queueWrite(qState)
+}
 
 async function selectVersion(ver) {
   if (ver === "custom" && !$("op").value.trim()) {
@@ -263,16 +309,10 @@ async function selectVersion(ver) {
   }
 
   if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
-  try {
-    const got = await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
-    // options.set 成功时不回传新值（实测返回 undefined）：以写入的内容为准
-    loaded = got && typeof got === "object" ? got : next
-    writeLSopts(loaded)
-    optionsToForm(loaded)
-    toast("已切换：「" + labelOf(ver) + "」，下一个请求生效", "ok")
-  } catch (e) {
-    toast("写入失败（本地已记住选择）：" + e.message, "warn", 5000)
-  }
+  loaded = next
+  writeLSopts(loaded)
+  toast("已切换：「" + labelOf(ver) + "」，下一个请求生效", "ok")
+  queueWrite(next)
 }
 
 const labelOf = (id) => id === "custom"
@@ -311,29 +351,17 @@ function setBridge(state, text) {
 }
 
 /* ---------- 保存 ---------- */
-async function save() {
+function save() {
   const btn = $("save")
-  btn.disabled = true
-  btn.textContent = "保存中…"
+  if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
   const next = formToOptions()
-  try {
-    await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
-    // 回读校验：set 不保证回传新值（实测 undefined），能不能读回也不稳定。
-    // 读回一致才算真保存；读不回来就老实说，别让人以为存上了。
-    let remote = null
-    try { remote = await withTimeout(magpie.options.get(), 3000, "options.get 超时") } catch { /* 读阻塞不影响已发出的写入 */ }
-    const verified = !!remote && typeof remote === "object" && sameOptions(remote, next)
-    loaded = verified ? remote : next
-    writeLSopts(loaded)
-    optionsToForm(loaded)
-    btn.textContent = verified ? "已保存" : "已写入"
-    btn.classList.add("saved")
-    toast(verified ? "已保存，下一个请求即生效" : "已发出写入，但读回校验未通过（界面用本地镜像回显）", verified ? "ok" : "warn", verified ? 2400 : 6000)
-    setTimeout(() => { btn.textContent = "保存配置"; btn.classList.remove("saved"); sync() }, 1200)
-  } catch (e) {
-    btn.textContent = "保存配置"
-    toast("写入失败：" + (e.message || e), "warn", 6000)
-  }
+  loaded = next
+  writeLSopts(loaded)
+  btn.classList.add("saved")
+  btn.textContent = "已保存"
+  toast("已保存，下一个请求即生效", "ok")
+  setTimeout(() => { btn.textContent = "保存配置"; btn.classList.remove("saved"); sync() }, 1200)
+  queueWrite(next)
   sync()
 }
 
@@ -436,12 +464,21 @@ async function main() {
     applyTheme(theme)
   } catch { /* 主题失败不影响功能 */ }
 
-  let got
-  try {
-    got = await withTimeout(magpie.options.get(), 4000, "options.get 超时")
-  } catch (e) {
-    got = null
+  if (!IS_FRAME) {
+    // 顶层直开：bridge 的 parent 是页面自己，调用会"自问自答"瞬间返回 undefined，
+    // 写入根本到不了 magpie。诚实显示，只当本地预览用。
+    setBridge("off", "独立预览 · 请从 magpie 侧边栏打开")
+    loaded = readLSopts() || {}
+    optionsToForm(loaded)
+    writeLS(readVersion())
+    sync()
+    return
   }
+
+  let got = null
+  try {
+    got = await withTimeout(magpie.options.get(), 3000, "options.get 超时")
+  } catch { got = null }
 
   const remote = got && typeof got === "object" && Object.keys(got).length ? got : null
   const mirror = readLSopts()
@@ -453,9 +490,10 @@ async function main() {
     setBridge("ok", "已连接 · 可读写")
   } else if (mirror) {
     setBridge("ok", "已连接 · 本地镜像")
-    toast("magpie 没回传已存配置，界面用本地镜像回填；保存会写回插件", "warn", 5000)
+    toast("没读到已存配置，界面按本地镜像显示；改动会整份写入生效", "warn", 6000)
   } else {
-    setBridge("ok", "已连接 · 未配置")
+    setBridge("ok", "已连接 · 无回执模式")
+    toast("没读到已存配置（无回执模式）：界面按默认值显示；改动会整份写入生效", "warn", 6000)
   }
   writeLS(readVersion())
   sync()
