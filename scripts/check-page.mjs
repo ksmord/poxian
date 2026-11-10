@@ -41,7 +41,7 @@ const pairs = [
   [{ handshake: true }, {}],
   [{ agents_off: [] }, {}],
   [{ handshake_model: "" }, {}],
-  [{ enabled: true, cache: true }, {}],
+  [{ enabled: true, cache: false }, {}],
   [{ models: [] }, {}],
 ]
 const diffs = [

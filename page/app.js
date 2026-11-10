@@ -154,7 +154,7 @@ function normOptions(o) {
   const x = o || {}
   const out = {}
   for (const f of SCHEMA) {
-    const v = x[f.key]
+    const v = x[f.key] === undefined ? f.def : x[f.key]
     if (f.kind === "bool") out[f.key] = v !== false
     else if (f.kind === "seg") out[f.key] = v === "append" ? "append" : "prepend"
     else if (f.kind === "list") out[f.key] = norm(v)
@@ -204,17 +204,20 @@ function formToOptions() {
 
 function optionsToForm(o) {
   const src = o || {}
+  const pick = (f) => (src[f.key] === undefined ? f.def : src[f.key])
   for (const f of SCHEMA) {
     if (f.kind === "bool") {
-      $(f.el).setAttribute("aria-checked", src[f.key] !== false ? "true" : "false")
+      $(f.el).setAttribute("aria-checked", pick(f) !== false ? "true" : "false")
     } else if (f.kind === "seg") {
-      const v = src[f.key] === "append" ? "append" : "prepend"
+      const v = pick(f) === "append" ? "append" : "prepend"
       const input = document.querySelector('input[name="' + f.name + '"][value="' + v + '"]')
       if (input) input.checked = true
     } else if (f.kind === "text") {
-      $(f.el).value = typeof src[f.key] === "string" ? src[f.key] : ""
+      const v = pick(f)
+      $(f.el).value = typeof v === "string" ? v : ""
     } else if (f.kind === "list") {
-      $(f.el).value = Array.isArray(src[f.key]) ? src[f.key].join(", ") : ""
+      const v = pick(f)
+      $(f.el).value = Array.isArray(v) ? v.join(", ") : ""
     }
   }
 
