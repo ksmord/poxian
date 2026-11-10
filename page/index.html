@@ -104,10 +104,10 @@
     background: var(--card); border: 1px solid var(--line);
     border-radius: var(--radius); overflow: hidden; margin-bottom: 14px;
   }
-  .summary div { padding: 9px 10px; border-left: 1px solid var(--line-2); min-width: 0; }
+  .summary div { padding: 8px 8px; border-left: 1px solid var(--line-2); min-width: 0; }
   .summary div:first-child { border-left: 0; }
-  .summary .k { font-size: 10.5px; color: var(--faint); }
-  .summary .v { font-size: 12.5px; font-weight: 600; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .summary .k { font-size: 10px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .summary .v { font-size: 12px; font-weight: 600; margin-top: 1px; overflow-wrap: anywhere; word-break: break-word; line-height: 1.25; }
 
   /* ---------- card ---------- */
   section {
@@ -216,7 +216,7 @@
   .cmd code {
     flex: 1; min-width: 0; font: 10.5px/1.4 var(--mono); color: var(--fg-2);
     background: var(--card-2); border-radius: 6px; padding: 5px 7px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: normal; overflow-wrap: anywhere; word-break: break-all;
   }
   .ghost {
     flex: none; border: 1px solid var(--line); background: var(--card);

@@ -8,7 +8,7 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.0.3"
+const VERSION = "0.0.4"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
@@ -16,6 +16,9 @@ const DEFAULT_VERSION = window.PX_DEFAULT_VERSION || "v5"
 
 // 选中态本地镜像：桥接读不到 / 超时也不会丢选择
 const LS_KEY = "poxian.prompt"
+// 配置镜像：magpie 的 options.get 在这版桥接上不稳定（实测返回 undefined），
+// 读不到时用最近一次写入成功的整份配置回填界面，避免"保存后看着像丢了"。
+const LS_OPTS = "poxian.options"
 
 const $ = (id) => document.getElementById(id)
 
@@ -64,6 +67,16 @@ function readLS() {
 }
 function writeLS(v) {
   try { v === null ? localStorage.removeItem(LS_KEY) : localStorage.setItem(LS_KEY, v) } catch {}
+}
+function readLSopts() {
+  try {
+    const raw = localStorage.getItem(LS_OPTS)
+    const o = raw ? JSON.parse(raw) : null
+    return o && typeof o === "object" ? o : null
+  } catch { return null }
+}
+function writeLSopts(o) {
+  try { localStorage.setItem(LS_OPTS, JSON.stringify(o)) } catch {}
 }
 
 /* ---------- 动态构建：版本列表 + Agent 行 ---------- */
@@ -162,29 +175,28 @@ function sameOptions(a, b) {
   return true
 }
 
+// 注意：magpie 的 options.set 是【整份替换】，不是合并。
+// 所以这里必须产出完整对象——每个键都写明确值，不能只回传被改动的键，
+// 否则未改动的 prompt / models / agents_off 会被清空（表现为"保存后配置丢了"）。
 function formToOptions() {
   const next = {}
-  const agentOff = [...document.querySelectorAll('#agentList .switch[aria-checked="false"]')]
+  next.agents_off = [...document.querySelectorAll('#agentList .switch[aria-checked="false"]')]
     .map((b) => b.getAttribute("aria-label"))
-  if (agentOff.length) next.agents_off = agentOff
 
   for (const f of SCHEMA) {
     if (f.kind === "bool") {
-      if (!isOn($(f.el))) next[f.key] = false
+      next[f.key] = isOn($(f.el))
     } else if (f.kind === "seg") {
-      const v = document.querySelector('input[name="' + f.name + '"]:checked').value
-      if (v !== f.def) next[f.key] = v
+      next[f.key] = document.querySelector('input[name="' + f.name + '"]:checked').value
     } else if (f.kind === "text") {
-      const v = $(f.el).value.trim()
-      if (v) next[f.key] = v
+      next[f.key] = $(f.el).value.trim()
     } else if (f.kind === "list") {
-      const v = $(f.el).value.split(",").map((s) => s.trim()).filter(Boolean)
-      if (v.length) next[f.key] = v
+      next[f.key] = $(f.el).value.split(",").map((s) => s.trim()).filter(Boolean)
     } else if (f.kind === "ver") {
       const v = readVersion()
-      if (v !== "custom" && v !== DEFAULT_VERSION) next.prompt = v
+      next.prompt = v === "custom" ? DEFAULT_VERSION : v
     } else if (f.kind === "prompt") {
-      if (readVersion() === "custom" && $(f.el).value.trim()) next.on_prompt = $(f.el).value
+      next[f.key] = readVersion() === "custom" ? $(f.el).value : ""
     }
   }
   return next
@@ -229,25 +241,30 @@ let loaded = {}
 let bridgeOk = false
 
 async function selectVersion(ver) {
-  applySelection(ver)
-  writeLS(ver)
-
-  const next = { ...normOptions(loaded) }
-  // 只改提示词相关两个键，其余保持当前生效值
-  delete next.on_prompt
-  if (ver !== "custom" && ver !== DEFAULT_VERSION) next.prompt = ver
-  else delete next.prompt
-
   if (ver === "custom" && !$("op").value.trim()) {
+    applySelection(ver)
+    writeLS(ver)
     toast("自定义模式：把文本粘进下面的框，再保存")
     return
   }
-  if (ver === "custom") next.on_prompt = $("op").value
+  applySelection(ver)
+  writeLS(ver)
+
+  // options.set 是整份替换：以「当前生效值」为底，只改提示词两个键，绝不发稀疏对象
+  const next = normOptions(loaded)
+  if (ver === "custom") {
+    next.on_prompt = $("op").value
+  } else {
+    next.on_prompt = ""
+    next.prompt = ver
+  }
 
   if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
   try {
     const got = await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
+    // options.set 成功时不回传新值（实测返回 undefined）：以写入的内容为准
     loaded = got && typeof got === "object" ? got : next
+    writeLSopts(loaded)
     optionsToForm(loaded)
     toast("已切换：「" + labelOf(ver) + "」，下一个请求生效", "ok")
   } catch (e) {
@@ -299,6 +316,7 @@ async function save() {
   try {
     const got = await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
     loaded = got && typeof got === "object" ? got : next
+    writeLSopts(loaded)
     optionsToForm(loaded)
     btn.textContent = "已保存"
     btn.classList.add("saved")
@@ -410,17 +428,28 @@ async function main() {
     applyTheme(theme)
   } catch { /* 主题失败不影响功能 */ }
 
+  let got
   try {
-    const got = await withTimeout(magpie.options.get(), 4000, "options.get 超时")
-    loaded = got && typeof got === "object" ? got : {}
-    optionsToForm(loaded)
-    const v = readVersion()
-    writeLS(v)
-    setBridge("ok", "已连接 · 可读写")
+    got = await withTimeout(magpie.options.get(), 4000, "options.get 超时")
   } catch (e) {
-    setBridge("err", "桥接无响应 · 只读")
-    toast("读取配置失败：" + (e.message || e) + "；已回退到本地记录的选择", "warn", 5000)
+    got = null
   }
+
+  const remote = got && typeof got === "object" && Object.keys(got).length ? got : null
+  const mirror = readLSopts()
+  loaded = remote || mirror || {}
+  optionsToForm(loaded)
+
+  if (remote) {
+    writeLSopts(remote)
+    setBridge("ok", "已连接 · 可读写")
+  } else if (mirror) {
+    setBridge("ok", "已连接 · 本地镜像")
+    toast("magpie 没回传已存配置，界面用本地镜像回填；保存会写回插件", "warn", 5000)
+  } else {
+    setBridge("ok", "已连接 · 未配置")
+  }
+  writeLS(readVersion())
   sync()
 }
 
