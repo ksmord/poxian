@@ -8,7 +8,7 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.0.4"
+const VERSION = "0.0.5"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
@@ -317,13 +317,18 @@ async function save() {
   btn.textContent = "保存中…"
   const next = formToOptions()
   try {
-    const got = await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
-    loaded = got && typeof got === "object" ? got : next
+    await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
+    // 回读校验：set 不保证回传新值（实测 undefined），能不能读回也不稳定。
+    // 读回一致才算真保存；读不回来就老实说，别让人以为存上了。
+    let remote = null
+    try { remote = await withTimeout(magpie.options.get(), 3000, "options.get 超时") } catch { /* 读阻塞不影响已发出的写入 */ }
+    const verified = !!remote && typeof remote === "object" && sameOptions(remote, next)
+    loaded = verified ? remote : next
     writeLSopts(loaded)
     optionsToForm(loaded)
-    btn.textContent = "已保存"
+    btn.textContent = verified ? "已保存" : "已写入"
     btn.classList.add("saved")
-    toast("已保存，下一个请求即生效", "ok")
+    toast(verified ? "已保存，下一个请求即生效" : "已发出写入，但读回校验未通过（界面用本地镜像回显）", verified ? "ok" : "warn", verified ? 2400 : 6000)
     setTimeout(() => { btn.textContent = "保存配置"; btn.classList.remove("saved"); sync() }, 1200)
   } catch (e) {
     btn.textContent = "保存配置"
