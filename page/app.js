@@ -1,21 +1,41 @@
-// 汉宫控制台 v3 —— 零依赖。桥接 API（_magpie/bridge.js）：
+// poxian 控制台 —— 零依赖。桥接 API（_magpie/bridge.js）：
 //   await magpie.ready            { dark, lang, tokens }
 //   await magpie.options.get()    本插件当前配置
 //   await magpie.options.set(o)   写回并持久化，返回写后的值
-const VERSION = "1.3.0"
+//
+// 版本元数据来自 versions.js（构建产物，window.PX_VERSIONS）。
+//
+// 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
+// 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const AGENTS = window.HG_AGENTS || []  // page/agents.js 普通脚本先加载
+const VERSION = "1.4.0"
 
-// 版本注册表与 prompts/index.js 保持同步（构建产物，此处只存元数据）
-const VERSIONS = [
-  { id: "v52",      label: "完整版 v5.2", badge: "默认", desc: "吸收重写终版：工作台契约 + 红蓝蓝图 + 卡密专项 + 交付纪律", chars: 78647 },
-  { id: "v5",       label: "轻量 V5",     badge: "",     desc: "v5 精简规范：工程原则 + 完整工作规范", chars: 8809 },
-  { id: "v4",       label: "轻量 V4",     badge: "",     desc: "v4 精简规范 + 旧版激活词握手", chars: 4942 },
-  { id: "v3",       label: "轻量 V3",     badge: "",     desc: "寒霜工作规范 v3：最短可用版", chars: 2240 },
-  { id: "variantb", label: "英文变体 B",  badge: "EN",   desc: "English variant: authorized-environment spec", chars: 5910 },
-]
+const AGENTS = window.HG_AGENTS || []
+const VERSIONS = window.PX_VERSIONS || []
+const DEFAULT_VERSION = window.PX_DEFAULT_VERSION || "v52"
 
 const $ = (id) => document.getElementById(id)
+
+/* ================= 字段声明（唯一真相） =================
+   kind:
+     bool   — 开关按钮，默认 true；OFF 时写入 false
+     seg    — 分段单选，默认 "prepend"；非默认时写入选中值
+     text   — 文本输入，默认 ""；非空时写入
+     list   — 逗号分隔列表，默认 []；非空时写入
+     ver    — 版本选择器（.prow[data-ver]），默认 DEFAULT_VERSION
+     prompt — 自定义提示词（.prow[data-ver="custom"]），选中且非空时写入 on_prompt
+*/
+const SCHEMA = [
+  { key: "enabled",   kind: "bool", el: "en", def: true },
+  { key: "override",  kind: "bool", el: "ov", def: true },
+  { key: "position",  kind: "seg",  el: "posSeg", name: "pos", def: "prepend" },
+  { key: "cache",     kind: "bool", el: "ce", def: true },
+  { key: "handshake", kind: "bool", el: "hs", def: true },
+  { key: "handshake_model", kind: "text", el: "hm", def: "" },
+  { key: "models",    kind: "list", el: "md", def: [] },
+  { key: "prompt",    kind: "ver",  def: DEFAULT_VERSION },
+  { key: "on_prompt", kind: "prompt", def: "" },
+]
 
 /* ---------- toast ---------- */
 function toast(text, kind = "", ms = 2800) {
@@ -64,7 +84,7 @@ function buildAgentList(off) {
   for (const a of AGENTS) {
     const row = document.createElement("div")
     row.className = "arow"
-    const on = !off.includes(a.id)
+    const on = off.indexOf(a.id) === -1
     row.innerHTML =
       '<div class="a-dot ' + (on ? "ok" : "") + '"></div>' +
       '<div class="a-main"><div class="a-name">' + a.name + ' <span class="a-id">' + a.id + '</span></div>' +
@@ -80,53 +100,115 @@ function buildAgentList(off) {
   }
 }
 
-/* ---------- 表单 ⇄ options ---------- */
+/* ---------- 表单 ⇄ options（由 SCHEMA 驱动） ---------- */
+
+const isOn = (el) => el.getAttribute("aria-checked") === "true"
+
+function readVersion() {
+  const on = document.querySelector(".prow.on")
+  return on ? on.dataset.ver : DEFAULT_VERSION
+}
+
+// 只写非默认值：默认项不落库，脏检测也不会因缺省键误报
 function formToOptions() {
-  const next = { override: $("ov").getAttribute("aria-checked") === "true", position: document.querySelector('input[name="pos"]:checked').value }
-  const ver = document.querySelector(".prow.on")?.dataset.ver
-  if (ver === "custom") {
-    if ($("op").value.trim()) next.on_prompt = $("op").value
-  } else if (ver && ver !== "v52") {
-    next.prompt = ver
+  const next = {}
+  const agentOff = [...document.querySelectorAll('#agentList .switch[aria-checked="false"]')]
+    .map((b) => b.getAttribute("aria-label"))
+  if (agentOff.length) next.agents_off = agentOff
+
+  for (const f of SCHEMA) {
+    if (f.kind === "bool") {
+      if (!isOn($(f.el))) next[f.key] = false
+    } else if (f.kind === "seg") {
+      const v = document.querySelector('input[name="' + f.name + '"]:checked').value
+      if (v !== f.def) next[f.key] = v
+    } else if (f.kind === "text") {
+      const v = $(f.el).value.trim()
+      if (v) next[f.key] = v
+    } else if (f.kind === "list") {
+      const v = $(f.el).value.split(",").map((s) => s.trim()).filter(Boolean)
+      if (v.length) next[f.key] = v
+    } else if (f.kind === "ver") {
+      const v = readVersion()
+      if (v !== "custom" && v !== DEFAULT_VERSION) next.prompt = v
+    } else if (f.kind === "prompt") {
+      if (readVersion() === "custom" && $(f.el).value.trim()) next.on_prompt = $(f.el).value
+    }
   }
-  const off = [...document.querySelectorAll('#agentList .switch[aria-checked="false"]')].map((b) => b.getAttribute("aria-label"))
-  if (off.length) next.agents_off = off
-  const md = $("md").value.split(",").map((s) => s.trim()).filter(Boolean)
-  if (md.length) next.models = md
-  if ($("hs").getAttribute("aria-checked") !== "true") next.handshake = false
-  const hm = $("hm").value.trim()
-  if (hm) next.handshake_model = hm
   return next
 }
 
 function optionsToForm(o) {
-  $("ov").setAttribute("aria-checked", o.override !== false ? "true" : "false")
-  const pos = o.position === "append" ? "append" : "prepend"
-  document.querySelector('input[name="pos"][value="' + pos + '"]').checked = true
-  $("md").value = Array.isArray(o.models) ? o.models.join(", ") : ""
-  const off = Array.isArray(o.agents_off) ? o.agents_off : []
-  buildAgentList(off)
-  const hasCustom = typeof o.on_prompt === "string" && o.on_prompt
-  const ver = hasCustom ? "custom" : (typeof o.prompt === "string" && o.prompt ? o.prompt : "v52")
+  const src = o || {}
+  for (const f of SCHEMA) {
+    if (f.kind === "bool") {
+      $(f.el).setAttribute("aria-checked", src[f.key] !== false ? "true" : "false")
+    } else if (f.kind === "seg") {
+      const v = src[f.key] === "append" ? "append" : "prepend"
+      document.querySelector('input[name="' + f.name + '"][value="' + v + '"]').checked = true
+    } else if (f.kind === "text") {
+      $(f.el).value = typeof src[f.key] === "string" ? src[f.key] : ""
+    } else if (f.kind === "list") {
+      $(f.el).value = Array.isArray(src[f.key]) ? src[f.key].join(", ") : ""
+    }
+  }
+
+  buildAgentList(Array.isArray(src.agents_off) ? src.agents_off : [])
+
+  const hasCustom = typeof src.on_prompt === "string" && src.on_prompt
+  const ver = hasCustom
+    ? "custom"
+    : (typeof src.prompt === "string" && VERSIONS.some((v) => v.id === src.prompt) ? src.prompt : DEFAULT_VERSION)
   for (const r of document.querySelectorAll(".prow")) r.classList.toggle("on", r.dataset.ver === ver)
   $("opRow").hidden = ver !== "custom"
   $("op").value = hasCustom || ""
-  $("hs").setAttribute("aria-checked", o.handshake === false ? "false" : "true")
-  $("hm").value = typeof o.handshake_model === "string" ? o.handshake_model : ""
   sync()
 }
 
-/* ---------- 脏状态 ---------- */
+/* ---------- 脏状态：逐字段比较，不看键序 ---------- */
+function norm(list) {
+  return Array.isArray(list) ? list.map(String).sort().join("\u0000") : ""
+}
+
+// 归一化成同一形状再比：缺省键、显式默认值、键序不同都不算脏
+function normOptions(o) {
+  const x = o || {}
+  const out = {}
+  for (const f of SCHEMA) {
+    const v = x[f.key]
+    if (f.kind === "bool") out[f.key] = v !== false
+    else if (f.kind === "seg") out[f.key] = v === "append" ? "append" : "prepend"
+    else if (f.kind === "list") out[f.key] = norm(v)
+    else if (f.kind === "ver") out[f.key] = typeof v === "string" && v ? v : DEFAULT_VERSION
+    else out[f.key] = typeof v === "string" ? v : ""
+  }
+  out.agents_off = norm(x.agents_off)
+  return out
+}
+
+function sameOptions(a, b) {
+  const A = normOptions(a)
+  const B = normOptions(b)
+  const keys = Object.keys(A)
+  for (let i = 0; i < keys.length; i++) {
+    if (A[keys[i]] !== B[keys[i]]) return false
+  }
+  return true
+}
+
 let loaded = {}
+
 function sync() {
-  const dirty = JSON.stringify(formToOptions()) !== JSON.stringify(loaded)
+  const dirty = !sameOptions(formToOptions(), loaded)
   $("save").disabled = !dirty
   $("dirty").hidden = !dirty
   $("reset").disabled = !dirty
   const off = [...document.querySelectorAll('#agentList .switch[aria-checked="false"]')].length
   $("agentStat").textContent = (AGENTS.length - off) + " / " + AGENTS.length
-  const ver = document.querySelector(".prow.on")?.dataset.ver
-  $("verStat").textContent = ver === "custom" ? "自定义" : (VERSIONS.find((v) => v.id === ver)?.label ?? "完整版 v5.2")
+  const ver = readVersion()
+  $("verStat").textContent = ver === "custom"
+    ? "自定义"
+    : (VERSIONS.find((v) => v.id === ver)?.label ?? "—")
   const n = $("op").value.length
   $("opCount").textContent = n ? n.toLocaleString() + " 字" : ""
 }
@@ -145,7 +227,7 @@ async function save() {
     toast("已保存，下一个请求即生效", "ok")
     setTimeout(() => { btn.textContent = "保存配置"; btn.classList.remove("saved"); sync() }, 1400)
   } catch (e) {
-    toast("此版本桥接不支持写入 —— 命令行等效：magpie plugin options hangong " + JSON.stringify(next), "warn", 6500)
+    toast("此版本桥接不支持写入 —— 命令行等效：magpie plugin options poxian " + JSON.stringify(next), "warn", 6500)
     btn.textContent = "保存配置"
   }
   sync()
@@ -156,23 +238,20 @@ async function main() {
   $("ver").textContent = "v" + VERSION
   buildVersionList()
   buildAgentList([])
-  const MODEL = "auto/deepseek-v4.1-flash"
-  for (const id of ["cmd1", "cmd2"]) $(id).textContent = $(id).textContent.replace("MODEL", MODEL)
 
-  $("ov").addEventListener("click", () => {
-    const b = $("ov")
-    b.setAttribute("aria-checked", b.getAttribute("aria-checked") === "true" ? "false" : "true")
-    sync()
-  })
-  $("hs").addEventListener("click", () => {
-    const b = $("hs")
-    b.setAttribute("aria-checked", b.getAttribute("aria-checked") === "true" ? "false" : "true")
-    sync()
-  })
+  // 所有 bool 开关统一绑定
+  for (const f of SCHEMA) {
+    if (f.kind !== "bool") continue
+    $(f.el).addEventListener("click", (e) => {
+      const b = e.currentTarget
+      b.setAttribute("aria-checked", isOn(b) ? "false" : "true")
+      sync()
+    })
+  }
   $("posSeg").addEventListener("change", sync)
-  $("md").addEventListener("input", sync)
-  $("hm").addEventListener("input", sync)
-  $("op").addEventListener("input", sync)
+  for (const f of SCHEMA) {
+    if (f.kind === "text" || f.kind === "list" || f.kind === "prompt") $(f.el).addEventListener("input", sync)
+  }
   $("reset").addEventListener("click", () => { optionsToForm(loaded); toast("已还原为当前生效配置") })
   $("save").addEventListener("click", save)
   document.addEventListener("keydown", (e) => {

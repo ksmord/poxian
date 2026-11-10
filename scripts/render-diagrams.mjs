@@ -19,7 +19,7 @@ const diagrams = {
         A3["Gemini CLI<br/>(gemini)"]
     end
     subgraph magpie["magpie gateway · 127.0.0.1:3425"]
-        MW["汉宫 middleware<br/>onRequest(body, ctx)"]
+        MW["poxian middleware<br/>onRequest(body, ctx)"]
         RT["routing · accounts · fallback"]
     end
     P["Providers<br/>(Anthropic / OpenAI-compatible / Gemini / relays)"]
@@ -32,7 +32,7 @@ const diagrams = {
     participant U as User
     participant A as Agent (e.g. Claude Code)
     participant M as magpie gateway
-    participant H as 汉宫 onRequest(body, ctx)
+    participant H as poxian onRequest(body, ctx)
     participant P as Provider
     U->>A: task
     A->>M: POST /v1/… (agent's own system prompt inside)

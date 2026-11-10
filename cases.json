@@ -11,7 +11,15 @@
     "expect_request": {
       "model": "m",
       "messages": [],
-      "system": "P."
+      "system": [
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
     }
   },
   {
@@ -26,7 +34,19 @@
     },
     "expect_request": {
       "model": "m",
-      "system": "P.\nYou code."
+      "system": [
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        },
+        {
+          "type": "text",
+          "text": "You code."
+        }
+      ]
     }
   },
   {
@@ -42,7 +62,19 @@
     },
     "expect_request": {
       "model": "m",
-      "system": "You code.\nP."
+      "system": [
+        {
+          "type": "text",
+          "text": "You code."
+        },
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
     }
   },
   {
@@ -75,7 +107,10 @@
       "system": [
         {
           "type": "text",
-          "text": "P."
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
         },
         {
           "type": "text",
@@ -106,7 +141,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "P."
+          "content": "<!--poxian-->\nP."
         },
         {
           "role": "user",
@@ -142,7 +177,7 @@
       "messages": [
         {
           "role": "developer",
-          "content": "P.\nYou code."
+          "content": "<!--poxian-->\nP.\nYou code."
         },
         {
           "role": "user",
@@ -187,7 +222,7 @@
             },
             {
               "type": "text",
-              "text": "P."
+              "text": "<!--poxian-->\nP."
             }
           ]
         }
@@ -209,7 +244,7 @@
     "expect_request": {
       "model": "m",
       "input": [],
-      "instructions": "P."
+      "instructions": "<!--poxian-->\nP."
     }
   },
   {
@@ -228,7 +263,7 @@
     },
     "expect_request": {
       "model": "m",
-      "instructions": "P.\nYou code.",
+      "instructions": "<!--poxian-->\nP.\nYou code.",
       "input": []
     }
   },
@@ -255,7 +290,7 @@
       "systemInstruction": {
         "parts": [
           {
-            "text": "P."
+            "text": "<!--poxian-->\nP."
           },
           {
             "text": "You code."
@@ -287,7 +322,7 @@
       "system_instruction": {
         "parts": [
           {
-            "text": "P."
+            "text": "<!--poxian-->\nP."
           },
           {
             "text": "You code."
@@ -330,7 +365,15 @@
     "expect_request": {
       "model": "glm-5.3",
       "messages": [],
-      "system": "P."
+      "system": [
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
     }
   },
   {
@@ -384,7 +427,15 @@
     "expect_request": {
       "model": "m",
       "messages": [],
-      "system": "P."
+      "system": [
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
     }
   },
   {
@@ -436,7 +487,7 @@
         {
           "role": "system",
           "content": {
-            "__startsWith": "You are the Han Gong workbench kernel. The user's message is an exact activation word, not a task."
+            "__startsWith": "<!--poxian-->\nYou are the poxian workbench kernel. The user"
           }
         },
         {
@@ -468,7 +519,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "P."
+          "content": "<!--poxian-->\nP."
         },
         {
           "role": "user",
@@ -503,7 +554,7 @@
         {
           "role": "system",
           "content": {
-            "__startsWith": "You are the Han Gong workbench kernel."
+            "__startsWith": "<!--poxian-->\nYou are the poxian workbench kernel. The user"
           }
         },
         {

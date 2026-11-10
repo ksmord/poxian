@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>汉宫 · 控制台</title>
+<title>poxian · 控制台</title>
 <script src="_magpie/bridge.js"></script>
 <script src="agents.js"></script>
+<script src="versions.js"></script>
 <script src="app.js" defer></script>
 <style>
   /* 色彩全部走 magpie 主题令牌（bridge 注入 --magpie-*，跟随用户实时主题）；
@@ -224,9 +225,9 @@
 </head>
 <body>
   <header>
-    <img src="../assets/icon.svg" alt="汉宫">
+    <img src="../assets/icon.svg" alt="poxian">
     <div class="h-title">
-      <h1>汉宫 <span class="ver" id="ver"></span></h1>
+      <h1>poxian <span class="ver" id="ver"></span></h1>
       <div class="h-sub">系统提示词网关中间件 · 一个提示词，注入每个经过 magpie 的请求</div>
     </div>
     <span class="badge off" id="bridge"><span class="dot"></span><span id="bridgeText">连接中…</span></span>
@@ -276,7 +277,7 @@
     </div>
     <div class="row">
       <div><div class="lab">激活词轻路由 <span style="font-weight:400;color:var(--muted)">handshake</span></div>
-           <div class="desc">消息恰好是激活词时，用几行握手指令替代 79K 全文（省 ~20K token/次），可选换到便宜模型</div></div>
+           <div class="desc">消息恰好是激活词时，用几行握手指令替代 78.6K 全文（省 ~21K token/次），可选换到便宜模型</div></div>
       <div class="ctl">
         <div style="display:flex;align-items:center;gap:10px">
           <button class="switch" id="hs" role="switch" aria-checked="true" aria-label="handshake"></button>
@@ -284,6 +285,16 @@
         </div>
         <input type="text" id="hm" placeholder="握手模型（可选）：如 auto/deepseek-v4.1-flash" spellcheck="false">
       </div>
+    </div>
+    <div class="row">
+      <div><div class="lab">缓存断点 <span style="font-weight:400;color:var(--muted)">cache</span></div>
+           <div class="desc">给 Anthropic 注入块加 cache_control，78.6K 前缀可命中缓存（每请求从全价变约 1/10）</div></div>
+      <div class="ctl"><button class="switch" id="ce" role="switch" aria-checked="true" aria-label="cache"></button></div>
+    </div>
+    <div class="row">
+      <div><div class="lab">总开关 <span style="font-weight:400;color:var(--muted)">enabled</span></div>
+           <div class="desc">关闭 = 中间件完全不做任何事（保留配置，不卸载插件）</div></div>
+      <div class="ctl"><button class="switch" id="en" role="switch" aria-checked="true" aria-label="enabled"></button></div>
     </div>
     <div class="actions">
       <span class="dirty" id="dirty" hidden><span class="d-dot"></span>有未保存的修改</span>
@@ -312,7 +323,7 @@
   <footer>
     · 保存立即生效，下一个请求即按新配置处理，无需重启<br>
     · 更换版本库内容：编辑仓库 <code>prompts/*.md</code> → <code>node scripts/build-prompts.mjs</code> → <code>magpie plugin update</code><br>
-    · 命令行等效：<code>magpie plugin options hangong '&lt;json&gt;'</code>　·　仓库 <code>github.com/YaoGuaiLi/hangong</code>
+    · 命令行等效：<code>magpie plugin options poxian '&lt;json&gt;'</code>　·　仓库 <code>github.com/YaoGuaiLi/hangong</code>
   </footer>
 
   <div class="toast" id="toast"></div>

@@ -1,12 +1,12 @@
 // Standalone runner for cases.json — same calling convention as magpie's
 // gateway (fresh body copy per case, ctx.protocol default anthropic, a
 // middleware returning undefined leaves the request untouched). No
-// dependencies: `node hangong.test.mjs`.
+// dependencies: `node poxian.test.mjs`.
 import { readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import assert from "node:assert/strict"
-import * as mod from "./hangong.middleware.js"
+import * as mod from "./poxian.middleware.js"
 
 const dir = dirname(fileURLToPath(import.meta.url))
 const cases = JSON.parse(readFileSync(join(dir, "cases.json"), "utf8"))
