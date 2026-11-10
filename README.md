@@ -37,7 +37,7 @@
 - **握手保留对话历史**：上游做法是把 `messages` 过滤成只剩 user，assistant/tool 全丢。现在只替换 system，历史原样保留。
 - **握手覆盖全部四协议**：上游只处理 chat/responses，anthropic（Claude Code）和 gemini 发激活词照样灌 78K。
 - **幂等**：注入内容首行带标记 `<!--poxian-->`，同一个 body 过两次不会叠加成 2×21K tokens。
-- **Anthropic 缓存断点**：自动给注入块加 `cache_control: {type:"ephemeral"}`，78K 前缀从"每请求全价"变成一次写入、后续命中缓存。已有 4 个断点时不再争加。可用 `cache:false` 关闭。
+- **Anthropic 缓存断点（默认关闭）**：开启后自动给注入块加 `cache_control: {type:"ephemeral"}`，大前缀从"每请求全价"变成一次写入、后续命中缓存，已有 4 个断点时不再争加。**只建议真 Anthropic 端点使用**：订阅代理渠道（WorkBuddy / Trae / SenseNova 等中转）兼容性不一，叠加 Claw Code 自带的 2~3 个断点会踩满上限，部分代理直接拒绝或挂住不返回，表现为 agent 连不上网关。上游 fork 源从不注入 `cache_control`，0.0.3 已把默认值对齐为 `false`。
 - **总闸**：`{"enabled": false}` 一键停用，不必卸载插件。
 - **异常兜底**：中间件内部完整 try/catch，畸形请求不会把异常抛回网关打断链路。
 - **原型链防护**：版本 id 查表用 `hasOwnProperty`。上游 `{"prompt":"constructor"}` 会静默关闭注入且不报错。
@@ -118,7 +118,7 @@ magpie plugin options poxian '{"override":true,"position":"prepend"}'
 | `models` | 全部 | 仅对这些模型名前缀生效，如 `["glm-","deepseek"]` |
 | `handshake` | `true` | 激活词轻路由总开关 |
 | `handshake_model` | 无 | 握手请求改派到该模型 |
-| `cache` | `true` | Anthropic `cache_control` 断点 |
+| `cache` | `false` | Anthropic `cache_control` 断点（仅真 Anthropic 端点建议开） |
 
 **4. 换成你自己的提示词**——编辑 `prompts/<版本>.md`，重新生成即可（热重载，无需重启）：
 
