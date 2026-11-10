@@ -1,23 +1,24 @@
 {
   "name": "poxian",
-  "version": "1.4.0",
+  "version": "0.0.1",
   "description": "poxian · magpie 网关系统提示词中间件 + 控制台页面：把完整工作台系统提示词写进每一个经过网关的请求，落在各协议自己的 system 位置。上游 fork 自 https://github.com/YaoGuaiLi/hangong",
   "type": "module",
   "files": [
-    "poxian.middleware.js",
-    "poxian-prompt.js",
-    "README.md",
     "LICENSE",
-    "cases.json",
-    "poxian.test.mjs",
-    "prompts/",
+    "README.md",
     "assets/icon.svg",
+    "cases.json",
     "docs/architecture.svg",
     "docs/sequence.svg",
+    "page/",
+    "page/icon.svg",
+    "poxian-prompt.js",
+    "poxian.middleware.js",
+    "poxian.test.mjs",
+    "prompts/",
     "scripts/build-prompts.mjs",
     "scripts/check-page.mjs",
-    "scripts/render-diagrams.mjs",
-    "page/"
+    "scripts/render-diagrams.mjs"
   ],
   "keywords": [
     "magpie",
@@ -38,8 +39,16 @@
   "magpie": {
     "middleware": "./poxian.middleware.js",
     "options": {
+      "enabled": true,
       "override": true,
-      "position": "prepend"
+      "position": "prepend",
+      "cache": true,
+      "handshake": true,
+      "handshake_model": "",
+      "models": [],
+      "agents_off": [],
+      "prompt": "v5",
+      "on_prompt": ""
     },
     "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzdBMTUxMiIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjAuNTUiIHN0b3AtY29sb3I9IiNBMzJBMUUiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjQzg0NTJDIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJnb2xkIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI0Y3RTdCNCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNFM0MzNjgiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiByeD0iNTYiIGZpbGw9InVybCgjYmcpIi8+CiAgPHBhdGggZD0iTTM4IDYyIFExMjggMjYgMjE4IDYyIEwxOTYgNjYgUTEyOCA0MiA2MCA2NiBaIiBmaWxsPSJ1cmwoI2dvbGQpIiBvcGFjaXR5PSIwLjkyIi8+CiAgPHJlY3QgeD0iNTIiIHk9Ijc0IiB3aWR0aD0iMTUyIiBoZWlnaHQ9IjciIHJ4PSIzLjUiIGZpbGw9InVybCgjZ29sZCkiIG9wYWNpdHk9IjAuODUiLz4KICA8dGV4dCB4PSIxMjgiIHk9IjE4NSIgZm9udC1zaXplPSIxMjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNGN0U3QjQiCiAgICAgICAgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgU0MnLCdNaWNyb3NvZnQgWWFIZWknLCdQaW5nRmFuZyBTQycsc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjcwMCI+56C0PC90ZXh0Pgo8L3N2Zz4K",
     "page": {

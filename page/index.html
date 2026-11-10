@@ -2,330 +2,378 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
 <title>poxian · 控制台</title>
-<script src="_magpie/bridge.js"></script>
-<script src="agents.js"></script>
-<script src="versions.js"></script>
-<script src="app.js" defer></script>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
-  /* 色彩全部走 magpie 主题令牌（bridge 注入 --magpie-*，跟随用户实时主题）；
-     回退值取自 magpie 自身 app.css 的官方调色板，保证脱离桥接时同色。 */
   :root {
-    --bg: var(--magpie-bg, #f4f4f6);
-    --card: var(--magpie-card, #ffffff);
-    --card-2: var(--magpie-card-2, #f9f9fb);
-    --pill: var(--magpie-pill, #f1f1f4);
-    --pill-hover: var(--magpie-pill-hover, #e9e9ee);
-    --seg-track: var(--magpie-seg-track, #e6e6eb);
-    --seg-thumb: var(--magpie-seg-thumb, #ffffff);
-    --seg-edge: var(--magpie-seg-edge, 0 1px 2px rgba(0,0,0,.14), 0 0 0 .5px rgba(0,0,0,.08));
-    --ctl-fg: var(--magpie-ctl-fg, #63636b);
-    --line: var(--magpie-line, #e3e3e8);
-    --line-2: var(--magpie-line-2, #ececf0);
-    --fg: var(--magpie-fg, #1c1c21);
-    --fg-2: var(--magpie-fg-2, #4b4b53);
-    --muted: var(--magpie-muted, #85858d);
-    --faint: var(--magpie-faint, #b9b9c2);
-    --accent: var(--magpie-accent, #4f46e5);
-    --accent-soft: var(--magpie-accent-soft, #eeedfd);
-    --accent-fg: var(--magpie-accent-fg, #ffffff);
-    --sel: var(--magpie-sel, #ecebfb);
-    --green: var(--magpie-green, #189a58);
-    --green-soft: var(--magpie-green-soft, #e4f6ec);
-    --amber: var(--magpie-amber, #b45309);
-    --amber-soft: var(--magpie-amber-soft, #fbf0df);
-    --pop-bg: var(--magpie-pop-bg, rgba(255,255,255,.94));
-    --shadow: var(--magpie-shadow, 0 16px 44px rgba(20,22,30,.16), 0 2px 8px rgba(20,22,30,.06));
-    --font: var(--magpie-font, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif);
-    --code: var(--magpie-code, ui-monospace, "SF Mono", Menlo, Consolas, monospace);
-    color-scheme: light dark;
+    --bg: #f6f5f2;
+    --card: #fff;
+    --card-2: #faf9f7;
+    --fg: #1b1a18;
+    --fg-2: #3d3a36;
+    --muted: #6f6a63;
+    --faint: #a09a92;
+    --line: #e6e2db;
+    --line-2: #efecE6;
+    --accent: #a32a1e;
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--card));
+    --ok: #2f7d4f;
+    --warn: #a06a12;
+    --radius: 12px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  }
+  /* 暗色：优先听 magpie 的 data-theme，没有桥接时跟系统 */
+  html[data-theme="dark"] {
+      --bg: #131211;
+      --card: #1b1a18;
+      --card-2: #201e1c;
+      --fg: #f0ede8;
+      --fg-2: #cfcac2;
+      --muted: #9a948b;
+      --faint: #6d675f;
+      --line: #2c2926;
+      --line-2: #262320;
+      --accent: #d8674f;
+      --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--card));
+      --ok: #6cc08a;
+      --warn: #d9a44a;
   }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: var(--magpie-bg, #1a1a1e); --card: var(--magpie-card, #232327);
-      --card-2: var(--magpie-card-2, #1f1f23); --pill: var(--magpie-pill, #2d2d33);
-      --pill-hover: var(--magpie-pill-hover, #36363d);
-      --seg-track: var(--magpie-seg-track, rgba(255,255,255,.035));
-      --seg-thumb: var(--magpie-seg-thumb, rgba(255,255,255,.15));
-      --seg-edge: var(--magpie-seg-edge, inset 0 .5px 0 rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.3));
-      --ctl-fg: var(--magpie-ctl-fg, #a1a1aa);
-      --line: var(--magpie-line, #333339); --line-2: var(--magpie-line-2, #2c2c32);
-      --fg: var(--magpie-fg, #ededf1); --fg-2: var(--magpie-fg-2, #b9b9c1);
-      --muted: var(--magpie-muted, #8b8b94); --faint: var(--magpie-faint, #56565f);
-      --accent: var(--magpie-accent, #a5b4fc); --accent-soft: var(--magpie-accent-soft, #2b2c47);
-      --accent-fg: var(--magpie-accent-fg, #14142a); --sel: var(--magpie-sel, #33345a);
-      --green: var(--magpie-green, #6fd99b); --green-soft: var(--magpie-green-soft, #1e3a2b);
-      --amber: var(--magpie-amber, #f2b544); --amber-soft: var(--magpie-amber-soft, #3f3220);
-      --pop-bg: var(--magpie-pop-bg, rgba(38,38,43,.96));
-      --shadow: var(--magpie-shadow, 0 16px 44px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.3));
+    html:not([data-theme]) {
+      --bg: #131211;
+      --card: #1b1a18;
+      --card-2: #201e1c;
+      --fg: #f0ede8;
+      --fg-2: #cfcac2;
+      --muted: #9a948b;
+      --faint: #6d675f;
+      --line: #2c2926;
+      --line-2: #262320;
+      --accent: #d8674f;
+      --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--card));
+      --ok: #6cc08a;
+      --warn: #d9a44a;
     }
   }
-  * { box-sizing: border-box; }
-  ::selection { background: var(--sel); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
   body {
-    margin: 0 auto; padding: 30px 34px 72px; max-width: 720px;
-    font: 13px/1.6 var(--font); color: var(--fg); background: var(--bg);
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.55 var(--sans);
+    padding: 0 14px calc(96px + env(safe-area-inset-bottom));
+    max-width: 620px;
+    margin: 0 auto;
     -webkit-font-smoothing: antialiased;
   }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 
-  /* ── 头部 ─────────────────────────── */
-  header { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
-  header img { width: 38px; height: 38px; border-radius: 10px;
-               box-shadow: 0 0 0 1px var(--line), 0 2px 6px rgba(20,22,30,.08); }
-  .h-title { flex: 1; min-width: 0; }
-  .h-title h1 { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: .01em; }
-  .h-title h1 .ver { color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 7px; }
-  .h-sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
-  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
-           padding: 4px 11px 4px 9px; border-radius: 999px; background: var(--green-soft);
-           color: var(--green); font-weight: 550; white-space: nowrap; }
-  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-  .badge.off { background: var(--amber-soft); color: var(--amber); }
-
-  /* ── 统计卡 ───────────────────────── */
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 26px; }
-  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px 11px; }
-  .stat .k { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-  .stat .v { font-size: 15.5px; font-weight: 650; margin-top: 3px; font-variant-numeric: tabular-nums; }
-  .stat .s { font-size: 11px; color: var(--faint); margin-top: 1px; }
-
-  /* ── 分区标题与卡片 ────────────────── */
-  h2 { font-size: 12px; font-weight: 650; color: var(--fg-2); margin: 24px 0 9px;
-       display: flex; align-items: baseline; gap: 8px; }
-  h2 .en { font-weight: 500; color: var(--faint); font-size: 11px; letter-spacing: .03em; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-  .card-note { padding: 9px 16px; font-size: 11px; color: var(--faint); background: var(--card-2);
-               border-top: 1px solid var(--line-2); }
-
-  /* ── 提示词版本行（图2 卡片式单选） ── */
-  .prow { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-          border-bottom: 1px solid var(--line-2); cursor: pointer; transition: background .12s; }
-  .prow:hover { background: var(--pill); }
-  .prow.on { background: var(--sel); }
-  .prow.on .p-check { opacity: 1; color: var(--accent); }
-  .p-main { flex: 1; min-width: 0; }
-  .p-name { font-size: 12.5px; font-weight: 570; display: flex; align-items: center; gap: 8px; }
-  .p-badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 999px;
-             background: var(--accent-soft); color: var(--accent); }
-  .p-desc { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-  .p-check { opacity: 0; font-weight: 700; font-size: 13px; }
-
-  /* ── Agent 行（图1 列表 + 开关） ──── */
-  .arow { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-          border-bottom: 1px solid var(--line-2); }
-  .arow:last-child { border-bottom: none; }
-  .a-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-  .a-dot.ok { background: var(--green); }
-  .a-main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
-  .a-name { font-size: 12.5px; font-weight: 550; white-space: nowrap; }
-  .a-id { font-family: var(--code); font-size: 10.5px; color: var(--faint); }
-  .a-note { font-size: 11px; color: var(--faint); margin-left: auto; text-align: right; white-space: nowrap; }
-
-  /* ── 设置行 ───────────────────────── */
-  .row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 1.35fr); gap: 18px;
-         align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line-2); }
-  .row:last-of-type { border-bottom: none; }
-  .row .lab { font-size: 12.5px; font-weight: 550; }
-  .row .desc { font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
-  .ctl { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
-
-  /* 开关 switch（shadcn 形态） */
-  .switch { position: relative; width: 38px; height: 22px; border-radius: 999px;
-            background: var(--seg-track); border: none; cursor: pointer; flex: none;
-            transition: background .18s cubic-bezier(.2,.8,.2,1); padding: 0; }
-  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
-                   border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);
-                   transition: transform .18s cubic-bezier(.2,.8,.2,1); }
-  .switch[aria-checked="true"] { background: var(--accent); }
-  .switch[aria-checked="true"]::after { transform: translateX(16px); }
-  .switch:active::after { width: 18px; }
-  .switch:disabled { opacity: .5; cursor: default; }
-
-  /* 分段控件 segmented */
-  .seg { display: inline-flex; background: var(--seg-track); border-radius: 8px; padding: 2px;
-         gap: 2px; width: fit-content; }
-  .seg label { position: relative; padding: 4px 13px; border-radius: 6px; font-size: 12px;
-               color: var(--ctl-fg); cursor: pointer; user-select: none; transition: color .15s; }
-  .seg label:has(input:checked) { background: var(--seg-thumb); box-shadow: var(--seg-edge); color: var(--fg); font-weight: 550; }
-  .seg input { position: absolute; opacity: 0; pointer-events: none; }
-
-  /* 输入 */
-  input[type="text"], textarea {
-    width: 100%; font: inherit; font-size: 12.5px; color: var(--fg);
-    background: var(--card-2); border: 1px solid var(--line); border-radius: 8px;
-    padding: 7px 11px; transition: border-color .15s, box-shadow .15s; }
-  input[type="text"]::placeholder, textarea::placeholder { color: var(--faint); }
-  input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft); }
-  textarea { font-family: var(--code); font-size: 12px; min-height: 88px; resize: vertical;
-             line-height: 1.55; margin-bottom: 2px; }
-  .ta-wrap { position: relative; width: 100%; }
-  .ta-count { position: absolute; right: 9px; bottom: 7px; font-size: 10.5px; color: var(--faint);
-              font-variant-numeric: tabular-nums; pointer-events: none; }
-
-  /* 动作条 */
-  .actions { display: flex; align-items: center; gap: 10px; padding: 12px 18px;
-             background: var(--card-2); border-top: 1px solid var(--line-2); }
-  .dirty { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); }
-  .dirty .d-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
-  .actions .spacer { flex: 1; }
-  button.btn { font: inherit; border-radius: 8px; cursor: pointer; transition: all .15s; }
-  .btn-ghost { background: transparent; color: var(--fg-2); border: 1px solid var(--line);
-               padding: 6px 14px; font-size: 12.5px; font-weight: 550; }
-  .btn-ghost:hover:not(:disabled) { background: var(--pill-hover); color: var(--fg); }
-  .btn-ghost:disabled { opacity: .45; cursor: default; }
-  .btn-primary { background: var(--accent); color: var(--accent-fg); border: none;
-                 padding: 6.5px 18px; font-size: 12.5px; font-weight: 570; }
-  .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
-  .btn-primary:active:not(:disabled) { transform: scale(.985); }
-  .btn-primary:disabled { opacity: .45; cursor: default; }
-  .btn-primary.saved { background: var(--green); }
-  kbd { font-family: var(--code); font-size: 10px; border: 1px solid var(--line);
-        border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: var(--muted); }
-
-  /* 测试卡 */
-  .trow { display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-          border-bottom: 1px solid var(--line-2); min-width: 0; }
-  .trow:last-child { border-bottom: none; }
-  .t-lab { flex: none; width: 84px; }
-  .t-lab .n { font-size: 12.5px; font-weight: 550; }
-  .t-lab .e { font-size: 10.5px; color: var(--faint); font-family: var(--code); }
-  .cmd { flex: 1 1 0; min-width: 0; font-family: var(--code); font-size: 10.5px; color: var(--fg-2);
-         background: var(--card-2); border: 1px solid var(--line-2); border-radius: 7px;
-         padding: 7px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cmd:hover { white-space: normal; word-break: break-all; overflow: visible; }
-  .icon-btn { flex: none; width: 29px; height: 29px; display: grid; place-items: center;
-              background: var(--card); border: 1px solid var(--line); border-radius: 7px;
-              color: var(--muted); font-size: 13px; }
-  .icon-btn:hover { background: var(--pill-hover); color: var(--fg); }
-  .expect { padding: 10px 14px; font-size: 11.5px; color: var(--muted); background: var(--card-2);
-            border-top: 1px solid var(--line-2); }
-  .expect code { font-family: var(--code); font-size: 11px; color: var(--fg-2);
-                 background: var(--sel); padding: 1px 7px; border-radius: 5px; }
-
-  footer { margin-top: 26px; font-size: 11.5px; color: var(--faint); line-height: 1.8; }
-  footer code { font-family: var(--code); font-size: 10.5px; }
-
-  .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 14px);
-           background: var(--pop-bg); backdrop-filter: blur(14px); color: var(--fg);
-           box-shadow: var(--shadow); border-radius: 11px; padding: 9px 17px;
-           font-size: 12.5px; opacity: 0; pointer-events: none;
-           transition: opacity .2s, transform .2s cubic-bezier(.2,.8,.2,1);
-           max-width: 84vw; z-index: 9; }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
-  .toast.ok { color: var(--green); }
-  .toast.warn { color: var(--amber); }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition: none !important; }
+  /* ---------- header ---------- */
+  header {
+    display: flex; align-items: center; gap: 11px;
+    padding: 18px 0 14px;
   }
+  header img, .logo {
+    width: 40px; height: 40px; border-radius: 11px; flex: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,.14);
+  }
+  .h-title { min-width: 0; flex: 1; }
+  h1 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -.2px; display: flex; align-items: center; gap: 7px; }
+  h1 .ver { font: 500 11px/1 var(--mono); color: var(--muted); background: var(--card); border: 1px solid var(--line); padding: 3px 6px; border-radius: 6px; }
+  .h-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .status {
+    flex: none; font-size: 11px; line-height: 1; padding: 6px 8px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--card); color: var(--muted);
+    display: inline-flex; align-items: center; gap: 5px; max-width: 44vw;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; }
+  .status.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 34%, var(--line)); }
+  .status.ok::before { background: var(--ok); }
+  .status.err { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 34%, var(--line)); }
+  .status.err::before { background: var(--warn); }
+  .status.off::before { background: var(--faint); }
+
+  /* ---------- 概要条 ---------- */
+  .summary {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 14px;
+  }
+  .summary div { padding: 9px 10px; border-left: 1px solid var(--line-2); min-width: 0; }
+  .summary div:first-child { border-left: 0; }
+  .summary .k { font-size: 10.5px; color: var(--faint); }
+  .summary .v { font-size: 12.5px; font-weight: 600; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- card ---------- */
+  section {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 12px; overflow: hidden;
+  }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 12px 14px 9px;
+  }
+  .sec-head h2 { margin: 0; font-size: 13px; font-weight: 620; letter-spacing: .1px; }
+  .sec-head .hint { font-size: 11px; color: var(--faint); }
+  .sec-body { padding: 0 0 4px; }
+  .sec-body.pad { padding: 0 14px 12px; }
+
+  /* ---------- 版本行 ---------- */
+  .prow {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px 10px 12px; cursor: pointer; position: relative;
+    border-top: 1px solid var(--line-2);
+  }
+  .prow:first-child { border-top: 0; }
+  .p-main { flex: 1; min-width: 0; }
+  .p-name { font-size: 13px; font-weight: 550; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .p-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+  .p-badge {
+    font: 500 9.5px/1 var(--sans); padding: 3px 5px; border-radius: 5px;
+    background: var(--card-2); color: var(--muted); border: 1px solid var(--line);
+  }
+  .p-badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .p-cost { font: 500 10px/1.35 var(--mono); color: var(--faint); text-align: right; flex: none; }
+  .p-cost.heavy { color: var(--warn); }
+  .p-check { width: 16px; text-align: center; color: transparent; font-size: 13px; flex: none; }
+  .p-mark { width: 3px; height: 24px; border-radius: 2px; background: transparent; flex: none; }
+  .prow.on { background: var(--accent-soft); }
+  .prow.on .p-mark { background: var(--accent); }
+  .prow.on .p-check { color: var(--accent); }
+  .prow.on .p-name { color: var(--accent); }
+  .prow:active { background: var(--card-2); }
+
+  /* ---------- 行 ---------- */
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-top: 1px solid var(--line-2);
+  }
+  .row:first-child { border-top: 0; }
+  .row .lab { font-size: 12.5px; font-weight: 520; }
+  .row .lab code { font: 11px var(--mono); color: var(--faint); margin-left: 5px; }
+  .row .desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .row .ctl { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .row > div:first-child { flex: 1; min-width: 0; }
+  .row.stack { flex-direction: column; align-items: stretch; gap: 8px; }
+  .row.stack .ctl { align-items: stretch; }
+
+  /* ---------- 控件 ---------- */
+  input[type="text"], textarea {
+    width: 100%; min-width: 0;
+    background: var(--card-2); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 9px; font: 12.5px/1.45 var(--sans);
+    outline: none; -webkit-appearance: none;
+  }
+  input[type="text"] { text-align: left; }
+  .row:not(.stack) input[type="text"] { width: 170px; }
+  input[type="text"]:focus, textarea:focus { border-color: var(--accent); background: var(--card); }
+  textarea { resize: vertical; min-height: 104px; font-family: var(--mono); font-size: 11.5px; line-height: 1.5; }
+  ::placeholder { color: var(--faint); }
+
+  .switch {
+    width: 40px; height: 24px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--card-2); position: relative; cursor: pointer; padding: 0; flex: none;
+    transition: background .16s, border-color .16s;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--faint); transition: transform .16s, background .16s;
+  }
+  .switch[aria-checked="true"] { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); }
+  .switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--accent); }
+
+  .seg { display: inline-flex; background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .seg label { position: relative; cursor: pointer; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg span { display: block; padding: 4px 9px; font-size: 11px; color: var(--muted); border-radius: 6px; }
+  .seg input:checked + span { background: var(--card); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.1); font-weight: 550; }
+
+  /* ---------- 智能体 ---------- */
+  .arow { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line-2); }
+  .arow:first-child { border-top: 0; }
+  .a-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; }
+  .a-dot.ok { background: var(--ok); }
+  .a-main { flex: 1; min-width: 0; }
+  .a-name { font-size: 12.5px; display: flex; align-items: baseline; gap: 6px; }
+  .a-id { font: 10px var(--mono); color: var(--faint); }
+  .a-note { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+  details { border-top: 1px solid var(--line-2); }
+  summary { padding: 10px 14px; font-size: 12px; color: var(--muted); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "›"; font-size: 14px; color: var(--faint); transition: transform .15s; }
+  details[open] summary::before { transform: rotate(90deg); }
+
+  /* ---------- 命令 ---------- */
+  .cmd { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid var(--line-2); }
+  .cmd:first-of-type { border-top: 0; }
+  .cmd code {
+    flex: 1; min-width: 0; font: 10.5px/1.4 var(--mono); color: var(--fg-2);
+    background: var(--card-2); border-radius: 6px; padding: 5px 7px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ghost {
+    flex: none; border: 1px solid var(--line); background: var(--card);
+    color: var(--muted); border-radius: 6px; padding: 5px 8px; font-size: 11px; cursor: pointer;
+  }
+  .ghost:active { background: var(--card-2); }
+
+  /* ---------- 底部操作条 ---------- */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 8;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: blur(16px) saturate(140%);
+    border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px;
+    max-width: 620px; margin: 0 auto;
+  }
+  .bar .dirty { font-size: 11.5px; color: var(--warn); flex: 1; display: flex; align-items: center; gap: 5px; }
+  .bar .dirty::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .bar .spacer { flex: 1; }
+  button.primary {
+    border: 0; background: var(--accent); color: #fff; font: 600 13px var(--sans);
+    padding: 9px 18px; border-radius: 9px; cursor: pointer; letter-spacing: .2px;
+  }
+  button.primary:disabled { background: var(--line); color: var(--faint); }
+  button.primary.saved { background: var(--ok); }
+  button.text { border: 0; background: none; color: var(--muted); font-size: 12px; padding: 9px 6px; cursor: pointer; }
+  button.text:disabled { color: var(--faint); opacity: .55; }
+
+  .op-head { display: flex; align-items: center; justify-content: space-between; padding: 0 14px 6px; }
+  .op-head .count { font: 11px var(--mono); color: var(--faint); }
+
+  footer { margin: 4px 2px 0; font-size: 10.5px; color: var(--faint); line-height: 1.7; }
+  footer code { font-family: var(--mono); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 78px; transform: translate(-50%, 10px);
+    background: var(--card); color: var(--fg); border: 1px solid var(--line);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18); border-radius: 10px;
+    padding: 8px 14px; font-size: 12px; opacity: 0; pointer-events: none;
+    transition: opacity .18s, transform .18s; max-width: 86vw; z-index: 9; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.ok { color: var(--ok); }
+  .toast.warn { color: var(--warn); }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
 </style>
 </head>
 <body>
   <header>
-    <img src="../assets/icon.svg" alt="poxian">
+    <img src="icon.svg" alt="poxian" width="40" height="40">
     <div class="h-title">
       <h1>poxian <span class="ver" id="ver"></span></h1>
-      <div class="h-sub">系统提示词网关中间件 · 一个提示词，注入每个经过 magpie 的请求</div>
+      <div class="h-sub">系统提示词网关中间件</div>
     </div>
-    <span class="badge off" id="bridge"><span class="dot"></span><span id="bridgeText">连接中…</span></span>
+    <span class="status" id="bridge" role="status">连接中…</span>
   </header>
 
-  <div class="stats">
-    <div class="stat"><div class="k">当前版本</div><div class="v" id="verStat">—</div><div class="s">提示词库 5 个版本</div></div>
-    <div class="stat"><div class="k">协议覆盖</div><div class="v">4 种</div><div class="s">anthropic · chat · responses · gemini</div></div>
-    <div class="stat"><div class="k">Agent 注入</div><div class="v" id="agentStat">—</div><div class="s">未列出的默认注入</div></div>
+  <div class="summary">
+    <div><div class="k">当前提示词</div><div class="v" id="verStat">—</div></div>
+    <div><div class="k">注入体量</div><div class="v" id="tokStat">—</div></div>
+    <div><div class="k">放行智能体</div><div class="v" id="agentStat">—</div></div>
+    <div><div class="k">版本库</div><div class="v" id="nStat">—</div></div>
   </div>
 
-  <h2>提示词版本 <span class="en">PROMPT</span></h2>
-  <div class="card" id="verList"></div>
-
-  <div class="row card" id="opRow" hidden style="margin-top:10px">
-    <div><div class="lab">自定义提示词 <span style="font-weight:400;color:var(--muted)">on_prompt</span></div>
-         <div class="desc">优先级最高；留空则回退到所选版本</div></div>
-    <div class="ctl"><div class="ta-wrap">
-      <textarea id="op" placeholder="粘贴整段系统提示词…" spellcheck="false"></textarea>
-      <span class="ta-count" id="opCount"></span>
-    </div></div>
-  </div>
-
-  <h2>Agent 注入 <span class="en">AGENTS</span></h2>
-  <div class="card" id="agentList"></div>
-  <div class="card-note">开关关闭的 Agent 不注入（写入排除表 agents_off）；名单未收录的 Agent <b>默认注入</b>。新 Agent 出现时无需操作。</div>
-
-  <h2>注入设置 <span class="en">OPTIONS</span></h2>
-  <div class="card">
-    <div class="row">
-      <div><div class="lab">覆盖已有提示词 <span style="font-weight:400;color:var(--muted)">override</span></div>
-           <div class="desc">请求自带系统提示词时仍注入。关闭 = 仅对无提示词的请求注入</div></div>
-      <div class="ctl"><button class="switch" id="ov" role="switch" aria-checked="true" aria-label="override"></button></div>
+  <section>
+    <div class="sec-head">
+      <h2>提示词</h2>
+      <span class="hint">点一行即生效并记住</span>
     </div>
-    <div class="row">
-      <div><div class="lab">注入位置 <span style="font-weight:400;color:var(--muted)">position</span></div>
-           <div class="desc">prepend 前置优先级最高；append 保留原提示词的缓存前缀</div></div>
-      <div class="ctl"><div class="seg" id="posSeg">
-        <label><input type="radio" name="pos" value="prepend" checked><span>prepend 前置</span></label>
-        <label><input type="radio" name="pos" value="append"><span>append 追加</span></label>
-      </div></div>
-    </div>
-    <div class="row">
-      <div><div class="lab">生效模型 <span style="font-weight:400;color:var(--muted)">models</span></div>
-           <div class="desc">留空 = 全部。前缀匹配，如 glm-, deepseek</div></div>
-      <div class="ctl"><input type="text" id="md" placeholder="全部模型" spellcheck="false"></div>
-    </div>
-    <div class="row">
-      <div><div class="lab">激活词轻路由 <span style="font-weight:400;color:var(--muted)">handshake</span></div>
-           <div class="desc">消息恰好是激活词时，用几行握手指令替代 78.6K 全文（省 ~21K token/次），可选换到便宜模型</div></div>
-      <div class="ctl">
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="switch" id="hs" role="switch" aria-checked="true" aria-label="handshake"></button>
-          <span style="font-size:11.5px;color:var(--muted)">启用轻路由</span>
-        </div>
-        <input type="text" id="hm" placeholder="握手模型（可选）：如 auto/deepseek-v4.1-flash" spellcheck="false">
+    <div class="sec-body" id="verList"></div>
+    <div id="opRow" hidden>
+      <div class="op-head" style="padding-top:8px">
+        <span class="hint" style="font-size:11px;color:var(--muted)">自定义文本</span>
+        <span class="count" id="opCount"></span>
+      </div>
+      <div style="padding:0 14px 12px">
+        <textarea id="op" spellcheck="false" placeholder="把你自己的系统提示词整段粘到这里，然后点保存"></textarea>
       </div>
     </div>
-    <div class="row">
-      <div><div class="lab">缓存断点 <span style="font-weight:400;color:var(--muted)">cache</span></div>
-           <div class="desc">给 Anthropic 注入块加 cache_control，78.6K 前缀可命中缓存（每请求从全价变约 1/10）</div></div>
-      <div class="ctl"><button class="switch" id="ce" role="switch" aria-checked="true" aria-label="cache"></button></div>
-    </div>
-    <div class="row">
-      <div><div class="lab">总开关 <span style="font-weight:400;color:var(--muted)">enabled</span></div>
-           <div class="desc">关闭 = 中间件完全不做任何事（保留配置，不卸载插件）</div></div>
-      <div class="ctl"><button class="switch" id="en" role="switch" aria-checked="true" aria-label="enabled"></button></div>
-    </div>
-    <div class="actions">
-      <span class="dirty" id="dirty" hidden><span class="d-dot"></span>有未保存的修改</span>
-      <span class="spacer"></span>
-      <button class="btn btn-ghost" id="reset">放弃修改</button>
-      <button class="btn btn-primary" id="save" disabled>保存配置</button>
-      <span style="font-size:10.5px;color:var(--faint)"><kbd>Ctrl</kbd>+<kbd>S</kbd></span>
-    </div>
-  </div>
+  </section>
 
-  <h2>验证生效 <span class="en">TEST</span></h2>
-  <div class="card">
-    <div class="trow">
-      <div class="t-lab"><div class="n">激活词</div><div class="e">寒霜</div></div>
-      <code class="cmd" id="cmd1">curl -s http://127.0.0.1:3425/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"MODEL","messages":[{"role":"user","content":"寒霜"}],"max_tokens":50}'</code>
-      <button class="btn icon-btn" id="copy1" title="复制命令">⧉</button>
+  <section>
+    <div class="sec-head"><h2>注入</h2><span class="hint">怎么塞进请求</span></div>
+    <div class="sec-body">
+      <div class="row">
+        <div><div class="lab">总开关<code>enabled</code></div>
+             <div class="desc">关掉 = 中间件完全不做事，配置保留</div></div>
+        <div class="ctl"><button class="switch" id="en" role="switch" aria-checked="true" aria-label="enabled"></button></div>
+      </div>
+      <div class="row">
+        <div><div class="lab">覆盖式注入<code>override</code></div>
+             <div class="desc">开 = 替换网关自带 system；关 = 拼在其后</div></div>
+        <div class="ctl"><button class="switch" id="ov" role="switch" aria-checked="true" aria-label="override"></button></div>
+      </div>
+      <div class="row">
+        <div><div class="lab">位置<code>position</code></div>
+             <div class="desc">前置更利于命中缓存</div></div>
+        <div class="ctl">
+          <div class="seg" id="posSeg">
+            <label><input type="radio" name="pos" value="prepend" checked><span>前置</span></label>
+            <label><input type="radio" name="pos" value="append"><span>追加</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div><div class="lab">缓存断点<code>cache</code></div>
+             <div class="desc">给 Anthropic 注入块加 cache_control，大前缀命中后约 1/10 价</div></div>
+        <div class="ctl"><button class="switch" id="ce" role="switch" aria-checked="true" aria-label="cache"></button></div>
+      </div>
+      <div class="row">
+        <div><div class="lab">激活词轻路由<code>handshake</code></div>
+             <div class="desc">消息恰为激活词时只回几行握手，不推全文</div></div>
+        <div class="ctl"><button class="switch" id="hs" role="switch" aria-checked="true" aria-label="handshake"></button></div>
+      </div>
+      <div class="row stack">
+        <div><div class="lab">握手模型<code>handshake_model</code></div>
+             <div class="desc">可选。留空 = 沿用原模型</div></div>
+        <div class="ctl"><input type="text" id="hm" placeholder="如 deepseek-v4.1-flash" spellcheck="false"></div>
+      </div>
+      <div class="row stack">
+        <div><div class="lab">生效模型<code>models</code></div>
+             <div class="desc">留空 = 全部。前缀匹配，逗号分隔，如 glm-, deepseek</div></div>
+        <div class="ctl"><input type="text" id="md" placeholder="全部模型" spellcheck="false"></div>
+      </div>
     </div>
-    <div class="trow">
-      <div class="t-lab"><div class="n">自检词</div><div class="e">自检</div></div>
-      <code class="cmd" id="cmd2">curl -s http://127.0.0.1:3425/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"MODEL","messages":[{"role":"user","content":"自检"}],"max_tokens":50}'</code>
-      <button class="btn icon-btn" id="copy2" title="复制命令">⧉</button>
-    </div>
-    <div class="expect">期望回复（命中即注入生效）：<code>寒霜 ready · main kernel loaded …</code> ／ <code>All systems normal. Continue.</code>　命令需在终端执行；沙盒页面无网络权限。</div>
-  </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>智能体</h2><span class="hint">谁吃这份提示词</span></div>
+    <details>
+      <summary>逐个开关（关闭 = 该 agent 不注入）</summary>
+      <div id="agentList"></div>
+    </details>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>命令</h2><span class="hint">桥接不可用时用</span></div>
+    <div class="cmd"><code id="cmd1">magpie plugin options poxian --get</code><button class="ghost" id="copy1">复制</button></div>
+    <div class="cmd"><code id="cmd2">magpie plugin options poxian --set '{"prompt":"v5"}'</code><button class="ghost" id="copy2">复制</button></div>
+  </section>
 
   <footer>
-    · 保存立即生效，下一个请求即按新配置处理，无需重启<br>
-    · 更换版本库内容：编辑仓库 <code>prompts/*.md</code> → <code>node scripts/build-prompts.mjs</code> → <code>magpie plugin update</code><br>
-    · 命令行等效：<code>magpie plugin options poxian '&lt;json&gt;'</code>　·　仓库 <code>github.com/YaoGuaiLi/hangong</code>
+    <div>体量为估算值：CJK 约 1 token/字，其余约 4 字符/token。默认轻量 V5，完整版 v5.2 约 2.1 万 token，每个请求都要重新 prefill。</div>
   </footer>
 
+  <div class="bar">
+    <span class="dirty" id="dirty" hidden>有未保存的改动</span>
+    <span class="spacer"></span>
+    <button class="text" id="reset" disabled>还原</button>
+    <button class="primary" id="save" disabled>保存配置</button>
+  </div>
+
   <div class="toast" id="toast"></div>
+
+  <script src="versions.js"></script>
+  <script src="agents.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

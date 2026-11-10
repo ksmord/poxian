@@ -458,7 +458,7 @@
       "model": "m",
       "messages": []
     },
-    "expect_marker": "CT Attack-Defense Prompt v5.2"
+    "expect_marker": "所有的方案实现都要遵循以下几点"
   },
   {
     "name": "handshake: exact 寒霜 gets the tiny handshake prompt, not 79K",

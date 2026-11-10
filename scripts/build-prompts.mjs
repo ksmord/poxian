@@ -18,10 +18,18 @@ const VERSIONS_META = [
   { id: "v5",       label: "轻量 V5",     badge: "",     desc: "v5 精简规范：工程原则 + 完整工作规范",               file: "prompts/v5.md" },
   { id: "v4",       label: "轻量 V4",     badge: "",     desc: "v4 精简规范 + 旧版激活词握手",                       file: "prompts/v4.md" },
   { id: "v3",       label: "轻量 V3",     badge: "",     desc: "v3 最短可用版",                                      file: "prompts/v3.md" },
-  { id: "variantb", label: "英文变体 B",  badge: "EN",   desc: "English variant: authorized-environment spec",       file: "prompts/variantb.md" },
-]
+] 
 
-const DEFAULT_ID = "v52"
+const DEFAULT_ID = "v5"
+
+// 体量估算：CJK 约 1 token/字，其余约 4 字符/token。只用于界面提示，不参与注入。
+const CJK = /[\u3000-\u303F\u3400-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/
+function estTokens(t) {
+  let cjk = 0
+  let other = 0
+  for (const ch of t) CJK.test(ch) ? cjk++ : other++
+  return Math.round(cjk + other / 4)
+}
 
 /* ---------- 读源 ---------- */
 const loaded = []
@@ -53,6 +61,7 @@ for (const v of loaded) {
     `    badge: ${JSON.stringify(v.badge)},`,
     `    desc: ${JSON.stringify(v.desc)},`,
     `    chars: ${v.text.length},`,
+    `    tokens: ${estTokens(v.text)},`,
     `    text: ${v.id === DEFAULT_ID ? "PROMPT" : JSON.stringify(v.text)},`,
     `  },`,
   )
@@ -67,6 +76,7 @@ const pv = loaded.map((v) => ({
   badge: v.badge,
   desc: v.desc,
   chars: v.text.length,
+  tokens: estTokens(v.text),
 }))
 writeFileSync(
   join(root, "page/versions.js"),
@@ -80,4 +90,5 @@ writeFileSync(
 const total = loaded.reduce((n, v) => n + v.text.length, 0)
 console.log(`poxian-prompt.js  built: ${loaded.length} versions, default=${DEFAULT_ID}, ${total} chars total`)
 console.log(`page/versions.js  built: ${pv.length} entries`)
-for (const v of loaded) console.log(`  ${v.id.padEnd(9)} ${String(v.text.length).padStart(6)}  ${v.label}`)
+for (const v of loaded)
+  console.log(`  ${v.id.padEnd(9)} ${String(v.text.length).padStart(6)} chars  ~${String(estTokens(v.text)).padStart(6)} tok  ${v.label}`)

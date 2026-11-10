@@ -13,7 +13,7 @@
 //
 // prompt 选择（先命中先赢）：
 //   options.on_prompt   字面文本，优先级最高
-//   options.prompt      版本 id（v52/v5/v4/v3/variantb），未知 id 回落默认
+//   options.prompt      版本 id（v52/v5/v4/v3），未知 id 回落默认（v5）
 //   （其余）             默认版本 v52
 //
 // 激活词轻路由：末条用户消息恰好是 寒霜 / 自检 / SELF-CHECK 时，只注入几行

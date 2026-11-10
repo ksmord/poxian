@@ -8,11 +8,14 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "1.4.0"
+const VERSION = "0.0.1"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
-const DEFAULT_VERSION = window.PX_DEFAULT_VERSION || "v52"
+const DEFAULT_VERSION = window.PX_DEFAULT_VERSION || "v5"
+
+// 选中态本地镜像：桥接读不到 / 超时也不会丢选择
+const LS_KEY = "poxian.ver.v1"
 
 const $ = (id) => document.getElementById(id)
 
@@ -34,11 +37,11 @@ const SCHEMA = [
   { key: "handshake_model", kind: "text", el: "hm", def: "" },
   { key: "models",    kind: "list", el: "md", def: [] },
   { key: "prompt",    kind: "ver",  def: DEFAULT_VERSION },
-  { key: "on_prompt", kind: "prompt", def: "" },
+  { key: "on_prompt", kind: "prompt", el: "op", def: "" },
 ]
 
-/* ---------- toast ---------- */
-function toast(text, kind = "", ms = 2800) {
+/* ---------- 小工具 ---------- */
+function toast(text, kind = "", ms = 2400) {
   const t = $("toast")
   t.textContent = text
   t.className = "toast show " + kind
@@ -46,35 +49,57 @@ function toast(text, kind = "", ms = 2800) {
   toast._h = setTimeout(() => (t.className = "toast"), ms)
 }
 
+// 桥接不守时是常态：任何 await 都套上限时，绝不无期限停在“连接中”
+function withTimeout(p, ms, label) {
+  return Promise.race([
+    Promise.resolve(p),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label || "timeout")), ms)),
+  ])
+}
+
+const fmt = (n) => Number(n || 0).toLocaleString("en-US")
+
+function readLS() {
+  try { return localStorage.getItem(LS_KEY) } catch { return null }
+}
+function writeLS(v) {
+  try { v === null ? localStorage.removeItem(LS_KEY) : localStorage.setItem(LS_KEY, v) } catch {}
+}
+
 /* ---------- 动态构建：版本列表 + Agent 行 ---------- */
 function buildVersionList() {
   const box = $("verList")
+  box.textContent = ""
   for (const v of VERSIONS) {
     const row = document.createElement("div")
     row.className = "prow"
     row.dataset.ver = v.id
+    const heavy = (v.tokens || 0) > 8000
     row.innerHTML =
-      '<div class="p-main"><div class="p-name">' + v.label +
-      (v.badge ? ' <span class="p-badge">' + v.badge + '</span>' : "") +
-      '</div><div class="p-desc">' + v.desc + ' · ' + Math.round(v.chars / 1000) + 'K 字</div></div>' +
+      '<span class="p-mark"></span>' +
+      '<div class="p-main">' +
+        '<div class="p-name">' + v.label +
+          (v.id === DEFAULT_VERSION ? ' <span class="p-badge ok">默认</span>' : '') +
+          (v.badge && v.id !== DEFAULT_VERSION ? ' <span class="p-badge">' + v.badge + '</span>' : '') +
+        '</div>' +
+        '<div class="p-desc">' + v.desc + '</div>' +
+      '</div>' +
+      '<span class="p-cost' + (heavy ? ' heavy' : '') + '">' +
+        fmt(v.chars) + ' 字<br>~' + fmt(v.tokens) + ' tok</span>' +
       '<span class="p-check">✓</span>'
-    row.addEventListener("click", () => {
-      $("opRow").hidden = true
-      for (const r of box.querySelectorAll(".prow")) r.classList.toggle("on", r === row)
-      sync()
-    })
+    row.addEventListener("click", () => selectVersion(v.id))
     box.appendChild(row)
   }
   const custom = document.createElement("div")
   custom.className = "prow"
   custom.dataset.ver = "custom"
-  custom.innerHTML = '<div class="p-main"><div class="p-name">自定义文本 <span class="p-badge">on_prompt</span></div>' +
-    '<div class="p-desc">整段粘贴你自己的系统提示词，优先级最高</div></div><span class="p-check">✓</span>'
-  custom.addEventListener("click", () => {
-    $("opRow").hidden = false
-    for (const r of box.querySelectorAll(".prow")) r.classList.toggle("on", r === custom)
-    sync()
-  })
+  custom.innerHTML =
+    '<span class="p-mark"></span>' +
+    '<div class="p-main">' +
+      '<div class="p-name">自定义文本 <span class="p-badge">on_prompt</span></div>' +
+      '<div class="p-desc">整段粘贴你自己的系统提示词，优先级最高</div>' +
+    '</div><span class="p-check">✓</span>'
+  custom.addEventListener("click", () => selectVersion("custom"))
   box.appendChild(custom)
 }
 
@@ -109,7 +134,34 @@ function readVersion() {
   return on ? on.dataset.ver : DEFAULT_VERSION
 }
 
-// 只写非默认值：默认项不落库，脏检测也不会因缺省键误报
+function norm(v) {
+  return Array.isArray(v) ? v.map((s) => String(s).trim()).filter(Boolean) : []
+}
+function normOptions(o) {
+  const x = o || {}
+  const out = {}
+  for (const f of SCHEMA) {
+    const v = x[f.key]
+    if (f.kind === "bool") out[f.key] = v !== false
+    else if (f.kind === "seg") out[f.key] = v === "append" ? "append" : "prepend"
+    else if (f.kind === "list") out[f.key] = norm(v)
+    else if (f.kind === "ver") out[f.key] = typeof v === "string" && v ? v : DEFAULT_VERSION
+    else out[f.key] = typeof v === "string" ? v : ""
+  }
+  out.agents_off = norm(x.agents_off)
+  return out
+}
+
+function sameOptions(a, b) {
+  const A = normOptions(a)
+  const B = normOptions(b)
+  const keys = Object.keys(A)
+  for (let i = 0; i < keys.length; i++) {
+    if (JSON.stringify(A[keys[i]]) !== JSON.stringify(B[keys[i]])) return false
+  }
+  return true
+}
+
 function formToOptions() {
   const next = {}
   const agentOff = [...document.querySelectorAll('#agentList .switch[aria-checked="false"]')]
@@ -145,7 +197,8 @@ function optionsToForm(o) {
       $(f.el).setAttribute("aria-checked", src[f.key] !== false ? "true" : "false")
     } else if (f.kind === "seg") {
       const v = src[f.key] === "append" ? "append" : "prepend"
-      document.querySelector('input[name="' + f.name + '"][value="' + v + '"]').checked = true
+      const input = document.querySelector('input[name="' + f.name + '"][value="' + v + '"]')
+      if (input) input.checked = true
     } else if (f.kind === "text") {
       $(f.el).value = typeof src[f.key] === "string" ? src[f.key] : ""
     } else if (f.kind === "list") {
@@ -159,58 +212,82 @@ function optionsToForm(o) {
   const ver = hasCustom
     ? "custom"
     : (typeof src.prompt === "string" && VERSIONS.some((v) => v.id === src.prompt) ? src.prompt : DEFAULT_VERSION)
-  for (const r of document.querySelectorAll(".prow")) r.classList.toggle("on", r.dataset.ver === ver)
+
+  if (hasCustom) $("op").value = src.on_prompt
+  applySelection(ver)
+}
+
+function applySelection(ver) {
+  const box = $("verList")
+  for (const r of box.querySelectorAll(".prow")) r.classList.toggle("on", r.dataset.ver === ver)
   $("opRow").hidden = ver !== "custom"
-  $("op").value = hasCustom || ""
   sync()
 }
 
-/* ---------- 脏状态：逐字段比较，不看键序 ---------- */
-function norm(list) {
-  return Array.isArray(list) ? list.map(String).sort().join("\u0000") : ""
-}
-
-// 归一化成同一形状再比：缺省键、显式默认值、键序不同都不算脏
-function normOptions(o) {
-  const x = o || {}
-  const out = {}
-  for (const f of SCHEMA) {
-    const v = x[f.key]
-    if (f.kind === "bool") out[f.key] = v !== false
-    else if (f.kind === "seg") out[f.key] = v === "append" ? "append" : "prepend"
-    else if (f.kind === "list") out[f.key] = norm(v)
-    else if (f.kind === "ver") out[f.key] = typeof v === "string" && v ? v : DEFAULT_VERSION
-    else out[f.key] = typeof v === "string" ? v : ""
-  }
-  out.agents_off = norm(x.agents_off)
-  return out
-}
-
-function sameOptions(a, b) {
-  const A = normOptions(a)
-  const B = normOptions(b)
-  const keys = Object.keys(A)
-  for (let i = 0; i < keys.length; i++) {
-    if (A[keys[i]] !== B[keys[i]]) return false
-  }
-  return true
-}
-
+/* ---------- 选中即生效 ---------- */
 let loaded = {}
+let bridgeOk = false
 
+async function selectVersion(ver) {
+  applySelection(ver)
+  writeLS(ver)
+
+  const next = { ...normOptions(loaded) }
+  // 只改提示词相关两个键，其余保持当前生效值
+  delete next.on_prompt
+  if (ver !== "custom" && ver !== DEFAULT_VERSION) next.prompt = ver
+  else delete next.prompt
+
+  if (ver === "custom" && !$("op").value.trim()) {
+    toast("自定义模式：把文本粘进下面的框，再保存")
+    return
+  }
+  if (ver === "custom") next.on_prompt = $("op").value
+
+  if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
+  try {
+    const got = await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
+    loaded = got && typeof got === "object" ? got : next
+    optionsToForm(loaded)
+    toast("已切换：「" + labelOf(ver) + "」，下一个请求生效", "ok")
+  } catch (e) {
+    toast("写入失败（本地已记住选择）：" + e.message, "warn", 5000)
+  }
+}
+
+const labelOf = (id) => id === "custom"
+  ? "自定义"
+  : (VERSIONS.find((v) => v.id === id)?.label ?? "—")
+
+/* ---------- 状态展示 ---------- */
 function sync() {
   const dirty = !sameOptions(formToOptions(), loaded)
   $("save").disabled = !dirty
   $("dirty").hidden = !dirty
   $("reset").disabled = !dirty
   const off = [...document.querySelectorAll('#agentList .switch[aria-checked="false"]')].length
-  $("agentStat").textContent = (AGENTS.length - off) + " / " + AGENTS.length
+  $("agentStat").textContent = (AGENTS.length - off) + "/" + AGENTS.length
+
   const ver = readVersion()
-  $("verStat").textContent = ver === "custom"
-    ? "自定义"
-    : (VERSIONS.find((v) => v.id === ver)?.label ?? "—")
+  const meta = VERSIONS.find((v) => v.id === ver)
+  $("verStat").textContent = labelOf(ver)
+  $("tokStat").textContent = ver === "custom"
+    ? fmt($("op").value.length) + " 字"
+    : (meta ? "~" + fmt(meta.tokens) + " tok" : "—")
+  $("nStat").textContent = VERSIONS.length + ""
   const n = $("op").value.length
-  $("opCount").textContent = n ? n.toLocaleString() + " 字" : ""
+  $("opCount").textContent = n ? fmt(n) + " 字" : ""
+}
+
+function setBridge(state, text) {
+  const el = $("bridge")
+  el.className = "status " + state
+  el.textContent = text
+  el.title = state === "ok" ? "已连上 magpie 桥接，配置可读写"
+    : state === "off" ? "没有 magpie 桥接：这张页面只是静态预览，改不了配置"
+    : state === "err" ? "桥接存在但没响应：很可能插件选项 schema 没登记导致读写失败"
+    : "正在握手"
+  bridgeOk = state === "ok"
 }
 
 /* ---------- 保存 ---------- */
@@ -220,17 +297,71 @@ async function save() {
   btn.textContent = "保存中…"
   const next = formToOptions()
   try {
-    const got = await magpie.options.set(next)
+    const got = await withTimeout(magpie.options.set(next), 6000, "options.set 超时")
     loaded = got && typeof got === "object" ? got : next
-    btn.textContent = "✓ 已保存"
+    optionsToForm(loaded)
+    btn.textContent = "已保存"
     btn.classList.add("saved")
     toast("已保存，下一个请求即生效", "ok")
-    setTimeout(() => { btn.textContent = "保存配置"; btn.classList.remove("saved"); sync() }, 1400)
+    setTimeout(() => { btn.textContent = "保存配置"; btn.classList.remove("saved"); sync() }, 1200)
   } catch (e) {
-    toast("此版本桥接不支持写入 —— 命令行等效：magpie plugin options poxian " + JSON.stringify(next), "warn", 6500)
     btn.textContent = "保存配置"
+    toast("写入失败：" + (e.message || e), "warn", 6000)
   }
   sync()
+}
+
+/* ---------- 配色：跟着 magpie 走 ---------- */
+// bridge 的 ready 返回 { dark, lang, tokens }。tokens 可能是对象（名字→值）
+// 或字符串数组（"--bg: #fff"），两种都吃；认得的别名映射回本页变量，
+// 认不得的原样挂到 :root 上，不报错。
+const TOKEN_ALIAS = [
+  ["accent", ["--color-accent", "--accent", "--brand", "--color-brand", "--primary", "--color-primary"]],
+  ["accent-soft", ["--accent-soft", "--color-accent-soft", "--brand-soft"]],
+  ["bg", ["--color-bg", "--bg", "--background", "--color-background", "--canvas"]],
+  ["card", ["--color-surface", "--surface", "--card", "--color-card"]],
+  ["fg", ["--color-text", "--text", "--fg", "--foreground", "--color-fg"]],
+  ["muted", ["--color-text-secondary", "--text-secondary", "--muted", "--color-muted"]],
+  ["line", ["--color-border", "--border", "--line", "--color-line"]],
+  ["ok", ["--color-success", "--success", "--ok", "--green"]],
+  ["warn", ["--color-warning", "--warning", "--warn", "--amber"]],
+]
+
+function applyTheme(theme) {
+  if (!theme || typeof theme !== "object") return
+  const root = document.documentElement
+  if (typeof theme.dark === "boolean") root.dataset.theme = theme.dark ? "dark" : "light"
+
+  const t = theme.tokens
+  if (!t) return
+  const pairs = []
+  if (Array.isArray(t)) {
+    for (const s of t) {
+      if (typeof s !== "string") continue
+      const i = s.indexOf(":")
+      if (i > 0) pairs.push([s.slice(0, i).trim(), s.slice(i + 1).trim()])
+    }
+  } else if (typeof t === "object") {
+    for (const k of Object.keys(t)) {
+      const v = t[k]
+      if (typeof v === "string" || typeof v === "number") pairs.push([k, String(v)])
+    }
+  }
+  if (!pairs.length) return
+
+  const norm = (k) => (k.startsWith("--") ? k : "--" + k.replace(/^_+/, "").replace(/_/g, "-"))
+  const bag = new Map()
+  for (const [rawK, v] of pairs) {
+    const k = norm(rawK)
+    root.style.setProperty(k, v)
+    bag.set(k.toLowerCase(), v)
+  }
+  for (const [mine, cands] of TOKEN_ALIAS) {
+    for (const c of cands) {
+      const hit = bag.get(c.toLowerCase())
+      if (hit) { root.style.setProperty("--" + mine, hit); break }
+    }
+  }
 }
 
 /* ---------- 启动 ---------- */
@@ -239,7 +370,6 @@ async function main() {
   buildVersionList()
   buildAgentList([])
 
-  // 所有 bool 开关统一绑定
   for (const f of SCHEMA) {
     if (f.kind !== "bool") continue
     $(f.el).addEventListener("click", (e) => {
@@ -264,21 +394,34 @@ async function main() {
   $("copy1").addEventListener("click", () => cp("cmd1"))
   $("copy2").addEventListener("click", () => cp("cmd2"))
 
+  // 先按本地镜像渲染，避免闪一下默认值
   optionsToForm({})
-  if (!window.magpie) {
-    $("bridgeText").textContent = "独立预览 · 桥接不可用"
+  const remembered = readLS()
+  if (remembered) applySelection(remembered)
+
+  if (!window.magpie || !window.magpie.options) {
+    setBridge("off", "未连接 · 独立预览")
     return
   }
-  try { await magpie.ready } catch { /* 主题失败不影响功能 */ }
+  setBridge("pending", "连接中…")
+
   try {
-    loaded = (await magpie.options.get()) || {}
+    const theme = await withTimeout(magpie.ready, 1500, "ready 超时")
+    applyTheme(theme)
+  } catch { /* 主题失败不影响功能 */ }
+
+  try {
+    const got = await withTimeout(magpie.options.get(), 4000, "options.get 超时")
+    loaded = got && typeof got === "object" ? got : {}
     optionsToForm(loaded)
-    $("bridge").classList.remove("off")
-    $("bridgeText").textContent = "桥接已连接 · 配置可读写"
+    const v = readVersion()
+    writeLS(v)
+    setBridge("ok", "已连接 · 可读写")
   } catch (e) {
-    $("bridgeText").textContent = "配置读取失败"
-    toast("options.get 失败：" + e, "warn", 5000)
+    setBridge("err", "桥接无响应 · 只读")
+    toast("读取配置失败：" + (e.message || e) + "；已回退到本地记录的选择", "warn", 5000)
   }
+  sync()
 }
 
 main()
