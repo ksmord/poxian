@@ -8,14 +8,14 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.0.1"
+const VERSION = "0.0.2"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
 const DEFAULT_VERSION = window.PX_DEFAULT_VERSION || "v5"
 
 // 选中态本地镜像：桥接读不到 / 超时也不会丢选择
-const LS_KEY = "poxian.ver.v1"
+const LS_KEY = "poxian.prompt"
 
 const $ = (id) => document.getElementById(id)
 
