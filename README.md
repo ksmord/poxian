@@ -111,20 +111,29 @@ magpie plugin options poxian '{"override":true,"position":"prepend"}'
 | `enabled` | `true` | 总闸。`false` 时什么都不做 |
 | `override` | `true` | 请求已带系统提示词时是否仍注入 |
 | `position` | `"prepend"` | `prepend` 前置（优先级最高）/ `append` 追加（原提示词前缀缓存完全不动） |
-| `prompt` | `"v5"` | 版本 id：`v52` / `v5` / `v4` / `v3`（默认轻量 V5，完整版 v5.2 需手动选） |
-| `on_prompt` | 无 | 用这段字面文本覆盖版本库 |
+| `prompt_path` | 空 | **外部 `.md` / `.txt` 路径。每请求 `stat`，改完即生效，优先于内置版本库。**支持 `~`、`$VAR`、`%VAR%`、相对 `ctx.cwd` 的路径 |
+| `prompt` | `"v5"` | 内置版本 id 回退：`v52` / `v5` / `v4` / `v3`。`prompt_path` 未设或读失败时使用 |
+| `on_prompt` | 无 | 字面文本，优先级最高（调试用，不进文件） |
+| `strip_frontmatter` | `true` | 剥掉 `.md` 开头的 `---` 元数据段 |
+| `gatewayTimeoutMs` | `3000` | 读 payload 的超时。超时/异常一律放行原请求 |
 | `agents` | 全部 | 仅对这些 Agent 生效，如 `["claude","codex"]` |
-| `agents_off` | 空 | 排除这些 Agent，其余仍注入 |
+| `agents_off` | 空 | 排除这些 Agent，其余仍注入（先于白名单判定） |
 | `models` | 全部 | 仅对这些模型名前缀生效，如 `["glm-","deepseek"]` |
 | `handshake` | `true` | 激活词轻路由总开关 |
 | `handshake_model` | 无 | 握手请求改派到该模型 |
 | `cache` | `false` | Anthropic `cache_control` 断点（仅真 Anthropic 端点建议开） |
+| `log` | `true` | 每请求写一行 JSONL 观测记录 |
+| `log_path` | `~/.magpie/logs/poxian.jsonl` | 观测日志路径，超过 2 MB 自动滚存为 `.1` |
 
-**4. 换成你自己的提示词**——编辑 `prompts/<版本>.md`，重新生成即可（热重载，无需重启）：
+**4. 换成你自己的提示词**——指向一个外部文件即可，**不需要重新构建、不需要重启**：
 
 ```bash
-node scripts/build-prompts.mjs
+magpie plugin options poxian '{"prompt_path":"~/workbench.md"}'
 ```
+
+`prompt_path` 每请求 `stat` 一次，文件变了下一次请求立即生效（`mtimeMs`+`size` 双键缓存，没变就不重复解码）。`on_prompt` 的字面文本仍然优先级最高，适合临时试一段话。
+
+内置的 `prompts/*.md` 现在是**回退路径**：`prompt_path` 没设或读不出来时才用 `prompt` 指定的版本。要改内置版本仍然走 `node scripts/build-prompts.mjs`。
 
 **5. 日常管理**
 
@@ -254,8 +263,17 @@ node scripts/check-page.mjs # 页面一致性：SCHEMA ↔ 中间件选项 ↔ H
 
 ```
 poxian/
-├── poxian.middleware.js      # 中间件本体（4 协议 · 过滤 / 幂等 / 握手 / 缓存）
-├── poxian-prompt.js          # 生成产物（中间件相对导入），请勿手改
+├── poxian.hooks.mjs          # 入口：异步钩子（magpie.hooks）· 有 fs · 空转/超时一律放行
+├── poxian.middleware.js      # 兼容壳：同步中间件（magpie.middleware）· 无 fs · 已弃用
+├── src/
+│   ├── core.mjs              # 纯逻辑：过滤 → 幂等 → 握手 → 注入（不碰 fs）
+│   ├── payload.mjs           # 外部文件读取 / BOM / UTF-16 / frontmatter / mtime 缓存
+│   ├── options.mjs           # 选项归一 + ~ $VAR %VAR% 路径展开
+│   ├── observe.mjs           # 每请求一行 JSONL
+│   ├── constants.mjs         # MARK / 激活词 / cache 断点 / 默认值
+│   └── adapters/             # 协议适配器：加协议 = 加文件 + 登记，核心不动
+│       ├── anthropic.mjs  chat.mjs  responses.mjs  gemini.mjs  index.mjs
+├── poxian-prompt.js          # 生成产物（内置回退版本库），请勿手改
 ├── prompts/                  # 提示词源文件——唯一真相，改这里
 │   ├── v52.md                # 完整版 v5.2（重，~21k tok）
 │   ├── v5.md · v4.md · v3.md  # 默认是 v5.md（轻，~3.9k tok）

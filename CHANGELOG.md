@@ -1,5 +1,52 @@
 # 更新说明
 
+## 0.1.0 · 架构重构：同步中间件 → 异步钩子
+
+参照 `magpie-system-prompt-file` 的挂载方式重做数据流。**payload 生命周期不再绑死进程生命周期**，
+这是 0.0.x 那一串「配置写 v5、实际跑 v3」问题的根因。
+
+### 挂载点
+
+- `magpie.middleware`（同步引擎，无 `node:fs`）→ **`magpie.hooks`**（Bun host，异步，有 fs）
+- 入口 `poxian.hooks.mjs`：`export async function onRequest(body, ctx)`
+- `poxian.middleware.js` 保留为兼容壳，老配置仍可加载；语义用 `normalize` + 旧 cache 默认值对齐
+
+### payload 外置
+
+- 新增 `prompt_path`：外部 `.md` / `.txt`，**每请求 `stat`**，`mtimeMs`+`size` 双键缓存，
+  改完下一次请求即生效，不构建、不重启
+- 优先级：`on_prompt`（字面）> `prompt_path`（文件）> `prompt`（内置版本）
+- 文件读失败**不阻断请求**：记 `fallback:<code>` 后退回内置版本
+- 解码补齐：UTF-8 BOM / UTF-16 LE&BE / 无 BOM UTF-16 探测 / CRLF / frontmatter 剥离
+- 路径展开：`~`、`$VAR`、`${VAR}`、`%VAR%`，相对路径对 `ctx.cwd` 解析；
+  Windows 盘符 / UNC 原样透传，不在非 Windows 上改写
+
+### 失败语义
+
+- `gatewayTimeoutMs`（默认 3000）包住 payload 解析，超时 / 任何异常 → 返回 `undefined`
+- 返回 `undefined` = 请求原样放行，这是 magpie 钩子契约的逃生门
+- 0.0.3 那条「订阅代理渠道请求挂住」属于同一类：钩子不许有阻塞路径
+
+### 协议适配器
+
+- 345 行单文件 4 个 if 分支 → `src/adapters/` 注册表，每个适配器只实现
+  `read / write / replace` 三个方法
+- 新增协议 = 加一个文件 + 在 `index.mjs` 登记，`core.mjs` 不动
+- 修正 Gemini：原先对 `systemInstruction` / `system_instruction` 的写入不统一，
+  现在保留请求已用字段名，统一按 `{parts:[...]}` 写回
+
+### 观测
+
+- 每请求一行 JSONL（默认 `~/.magpie/logs/poxian.jsonl`，超 2 MB 滚存 `.1`）：
+  `{ts, agent, model, action, src, bytes, ms, protocol, position}`
+- `action` 取值可直接定位问题：`inject` / `handshake` / `skip-mark` / `skip-override` /
+  `skip-agent-off` / `skip-agent-list` / `skip-model` / `skip-protocol` / `error`
+
+### 测试
+
+- 新增 `test/hooks.test.mjs`：`node --test test/` → 21 例全绿
+- 旧 `cases.json` 快照 22/22 仍全绿（兼容壳的 cache 默认值保持旧语义）
+
 ## 0.0.6
 
 修「保存按钮永远失败」——这是诊断最久的一个，根因不在页面表单，而在桥接回执。
