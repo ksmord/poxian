@@ -1,5 +1,53 @@
 # 更新说明
 
+## 0.1.2 · 修复报文清洗分支的三个 P0
+
+0.1.1 引入了报文清洗开关（`enable_message_filter` / `strip_safety_system` / `strip_deny_assistant`），但接线没做完：
+三方对齐检查红、插件清单指向不存在的文件、新分支零测试覆盖。本次把三处补齐。
+
+### P0-1 · `check-page` 三方对齐恢复
+
+- `page/app.js` 的 `SCHEMA` 登记三个新键，`page/index.html` 增加「报文清洗」分区（`id="mf"` / `sf` / `sd`）。
+- `scripts/check-page.mjs` 的 `SOURCES` 加入 `src/filter.mjs`，否则新模块里读的 `o.*` 逃过扫描。
+- 三个键不再靠命令行独占，页面可开关、可脏检测、可持久化。
+
+### P0-2 · 分层与清单
+
+- 清洗实现移入 `src/filter.mjs`（纯函数，不碰 fs）。`src/core.mjs` 不再 `import "../prefilter/..."`，
+  `src/` 重新自包含：单独拷出 `src/` 不会 `ERR_MODULE_NOT_FOUND`。
+- `prefilter/` 退化为**入口变体**：只剩 `hooks.mjs` + `README.md`，**删除 `package.json`**。
+  原因：`hooks.mjs` 依赖 `../src/filter.mjs`，脱离包根必然加载失败；
+  带清单会被误当独立插件安装，正是原先 `magpie.hooks` 指向不存在文件的那类故障。
+- 选项读取统一支持嵌套 `magpie.options` 与拍平顶层键两种写法。
+
+### P0-3 · 新分支测试覆盖
+
+- 新增 `test/filter.test.mjs`（26 条）：四种协议的 system 形状、`developer` 角色、Gemini 的 `model` 角色、
+  `systemInstruction` 与 `system_instruction` 双写法、拒绝历史合并、未命中返回原引用、入参不被就地修改、
+  `dry_run` 只在副本上清洗、插件壳放行语义。
+- `cases.json` 新增 7 条端到端（26 → 33），全部显式打开总开关；另留一条「默认关闭」证明旧行为未变。
+- 新增 `test/chain.test.mjs`（9 条全链路）：以 `onRequest(body, ctx)` 为入口，
+  覆盖清洗后 `override=false` 仍能注入、清洗后 `skip-mark` 仍按注入标记短路、
+  `position="append"` 在清洗后落位、`dry_run` 下清洗与注入都只在副本发生、
+  `ctx.agents_off` 命中时清洗不执行。纯函数用例绕过了入口链，这一层必须单独测。
+
+### 语义修正
+
+- 清洗插入位置固定在 `precheck` 之后、`adapter.read()` 之前。放在 `read()` 之后会让 `override=false`
+  拿「删除前是否有 system」来判定，语义错位。
+- **幂等判定仍在清洗之前**。注入文本自带「禁止」一类关键词，若先清洗，
+  `strip_safety_system` 会把上一轮注入的那段连同 `MARK` 一起删掉，下次请求判为未注入、
+  重新走一遍注入；后果是每请求白付一次克隆，且日志 `filtered` 恒为 `true`、注入次数无法对账。
+  最终顺序：`precheck` → 幂等 → 清洗 → 握手/override → 注入，四步不可互换。
+- `ctx.tags` 的 per-agent 豁免已删除。`tags` 在 magpie 的钩子契约里不存在
+  （`ctx` 只有 `agent` / `model` / `protocol` / `path` / `stream` / `options` / `cwd`），
+  那条分支在真实流量里永不触发、只在手工塞字段的用例里是绿的。
+  要按 agent 豁免请用 `agents` / `agents_off`，它们在 `precheck` 里比清洗更早判定。
+- `messages` 删除 assistant 后合并相邻同角色（Anthropic 要求交替，否则 400）。
+  `Responses.input` 与 Gemini `contents` **不合并** —— 两者允许连续同角色，
+  合并会把带 `type`/`metadata` 的独立 message 项或两条 `functionCall` 揉坏。
+- 命中时 `meta.filtered = true` 进日志，报文里不留任何标记。
+
 ## 0.1.1 · 工程加固：先判定后取载荷、路径白名单、载荷上限、指纹日志
 
 全部为**增量开关**，默认值与 0.1.0 一致：旧配置升级后行为不变（26 条快照用例 + 28 条钩子用例全绿）。

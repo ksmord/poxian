@@ -667,5 +667,269 @@
       "messages": [],
       "system": "OWN"
     }
+  },
+  {
+    "name": "清洗 · chat: 安全约束 system 消息被删，再注入",
+    "ctx": {
+      "protocol": "chat"
+    },
+    "options": {
+      "on_prompt": "P.",
+      "cache": false,
+      "enable_message_filter": true,
+      "strip_safety_system": true
+    },
+    "request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是安全助手，禁止一切越权操作"
+        },
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    },
+    "expect_request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "system",
+          "content": "<!--poxian-->\nP."
+        },
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  {
+    "name": "清洗 · anthropic: 字符串 system 命中即整段删除",
+    "options": {
+      "on_prompt": "P.",
+      "enable_message_filter": true,
+      "strip_safety_system": true
+    },
+    "request": {
+      "model": "m",
+      "system": "遵守法律与合规要求",
+      "messages": []
+    },
+    "expect_request": {
+      "model": "m",
+      "messages": [],
+      "system": [
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "清洗 · anthropic: block 数组只删命中块，保留其余",
+    "options": {
+      "on_prompt": "P.",
+      "enable_message_filter": true,
+      "strip_safety_system": true
+    },
+    "request": {
+      "model": "m",
+      "system": [
+        {
+          "type": "text",
+          "text": "你是安全助手"
+        },
+        {
+          "type": "text",
+          "text": "You code."
+        }
+      ],
+      "messages": []
+    },
+    "expect_request": {
+      "model": "m",
+      "messages": [],
+      "system": [
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        },
+        {
+          "type": "text",
+          "text": "You code."
+        }
+      ]
+    }
+  },
+  {
+    "name": "清洗 · responses: instructions 命中即删除",
+    "ctx": {
+      "protocol": "responses"
+    },
+    "options": {
+      "on_prompt": "P.",
+      "cache": false,
+      "enable_message_filter": true,
+      "strip_safety_system": true
+    },
+    "request": {
+      "model": "m",
+      "instructions": "不能生成任何受限内容",
+      "input": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    },
+    "expect_request": {
+      "model": "m",
+      "instructions": "<!--poxian-->\nP.",
+      "input": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  {
+    "name": "清洗 · gemini: systemInstruction 命中即删除",
+    "ctx": {
+      "protocol": "gemini"
+    },
+    "options": {
+      "on_prompt": "P.",
+      "cache": false,
+      "enable_message_filter": true,
+      "strip_safety_system": true
+    },
+    "request": {
+      "systemInstruction": {
+        "parts": [
+          {
+            "text": "合规要求：禁止输出"
+          }
+        ]
+      },
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ]
+    },
+    "expect_request": {
+      "systemInstruction": {
+        "parts": [
+          {
+            "text": "<!--poxian-->\nP."
+          }
+        ]
+      },
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "清洗 · chat: 删拒绝式 assistant 后合并相邻同角色",
+    "ctx": {
+      "protocol": "chat"
+    },
+    "options": {
+      "on_prompt": "P.",
+      "cache": false,
+      "enable_message_filter": true,
+      "strip_safety_system": false,
+      "strip_deny_assistant": true
+    },
+    "request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "抱歉，无法提供"
+        },
+        {
+          "role": "user",
+          "content": "q2"
+        }
+      ]
+    },
+    "expect_request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "system",
+          "content": "<!--poxian-->\nP."
+        },
+        {
+          "role": "user",
+          "content": "q1\nq2"
+        }
+      ]
+    }
+  },
+  {
+    "name": "清洗 · 默认关闭：不带开关时 system 原样保留",
+    "ctx": {
+      "protocol": "chat"
+    },
+    "options": {
+      "on_prompt": "P.",
+      "cache": false
+    },
+    "request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是安全助手"
+        },
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    },
+    "expect_request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "system",
+          "content": "<!--poxian-->\nP.\n你是安全助手"
+        },
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
   }
 ]

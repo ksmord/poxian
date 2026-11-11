@@ -1,9 +1,10 @@
-// 纯逻辑核心：过滤 → 幂等 → 握手 → 注入。
+// 纯逻辑核心：过滤 → 幂等 → 清洗 → 握手 → 注入。
 // 不 import 任何 node:fs，同步中间件壳也能直接复用。
 
 import { MARK, ACTIVATION } from "./constants.mjs"
 import { pick } from "./adapters/index.mjs"
 import { extractText } from "./text.mjs"
+import { filterMessages } from "./filter.mjs"
 
 // 过滤语义与原实现逐条对齐：
 //   agents_off 命中 → 跳过（先判，握手也绕不过去）
@@ -105,13 +106,36 @@ export function handle(body, ctx, payload, o) {
 function run(body, ctx, payload, o) {
   const pre = precheck(body, ctx, o)
   if (pre) return pre
-
   const c = ctx || {}
   const adapter = pick(c.protocol)
-  const existing = adapter.read(body)
-  if (typeof existing === "string" && existing.indexOf(MARK) !== -1) {
+
+  // 幂等判定必须排在清洗之前。
+  // 理由：注入内容（MARK + 提示词正文）自身就含「禁止」一类安全关键词。
+  // 若先清洗，strip_safety_system 会把上一轮注入的这一段连同 MARK 一起删掉，
+  // 下一次请求读到空 system → 判为「未注入」→ 重复走一遍注入。
+  // 后果不是内容丢失（会重新写入），而是：
+  //   - 每个请求白付一次克隆与清洗；
+  //   - 日志 filtered 恒为 true，注入次数的对账全部失真。
+  // 这条与「清洗放在 existing 判定之前」不冲突：override=false 依赖的是
+  // 清洗之后的 existing，而幂等依赖的是清洗之前的原始标记。
+  const marked = adapter.read(body)
+  if (typeof marked === "string" && marked.indexOf(MARK) !== -1) {
     return { action: "skip-mark", meta: { protocol: adapter.id } }
   }
+
+  // 报文清洗：precheck 之后、幂等标记之后、override 判定之前。
+  // 位置理由：
+  //   - 放在 precheck 之后 —— 被 skip-* 挡掉的请求不该付清洗成本；
+  //   - 放在读 existing 之前 —— 否则删掉自带 system 后，override=false
+  //     会拿"删之前有没有 system"来判，语义错位。
+  const f = applyFilter(body, o)
+  body = f.body
+  const filtered = f.changed
+
+  // 清洗标记只进日志与 meta，不进报文。
+  const tag = filtered ? { filtered: true } : {}
+
+  const existing = adapter.read(body)
 
   if (o.handshake && isActivation(body, adapter.id)) {
     if (o.handshake_model) body.model = o.handshake_model
@@ -120,18 +144,44 @@ function run(body, ctx, payload, o) {
       ? {
           body: out,
           action: "handshake",
-          meta: { protocol: adapter.id, model: o.handshake_model || undefined, written: payload.handshake },
+          meta: { protocol: adapter.id, model: o.handshake_model || undefined, written: payload.handshake, ...tag },
         }
-      : { action: "skip-write", meta: { protocol: adapter.id } }
+      : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
   }
 
   const hasOwn = typeof existing === "string" && existing.trim() !== ""
-  if (hasOwn && !o.override) return { action: "skip-override", meta: { protocol: adapter.id } }
+  if (hasOwn && !o.override) return { action: "skip-override", meta: { protocol: adapter.id, ...tag } }
 
   const out = adapter.write(body, payload.text, { position: o.position, cache: o.cache })
   return out
-    ? { body: out, action: "inject", meta: { protocol: adapter.id, position: o.position, written: payload.text } }
-    : { action: "skip-write", meta: { protocol: adapter.id } }
+    ? {
+        body: out,
+        action: "inject",
+        meta: { protocol: adapter.id, position: o.position, written: payload.text, ...tag },
+      }
+    : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
+}
+
+// 报文清洗的接线层。开关都在 options 里归一过，这里只做组合：
+//   enable_message_filter=false → 一律不动（默认，旧行为）
+//
+// 不做 per-agent 豁免。这里曾经写过 `ctx.tags.includes("agent")` ——
+// ctx.tags 在 magpie 的钩子契约里并不存在（仓库里 ctx 的字段只有
+// agent / model / protocol / path / stream / options / cwd），
+// 那条分支在真实流量里永远不会触发，而用例手工塞 tags 照样是绿的。
+// 「让某个 agent 不吃清洗」请用已有的 agents / agents_off：
+// 它们在 precheck 里比清洗更早判定，是真实存在的契约字段。
+// 返回 { body, changed }。changed=true 时 body 是新对象，原引用未被修改。
+function applyFilter(body, o) {
+  if (!o.enable_message_filter) return { body, changed: false }
+
+  const next = filterMessages(body, {
+    enabled: true,
+    strip_safety_system: o.strip_safety_system,
+    strip_deny_assistant: o.strip_deny_assistant,
+  })
+
+  return next === body ? { body, changed: false } : { body: next, changed: true }
 }
 
 // 深拷贝请求体。structuredClone 优先，遇见函数/循环引用时退回 JSON。

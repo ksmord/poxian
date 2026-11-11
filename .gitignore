@@ -1,3 +1,7 @@
 node_modules/
 *.log
 .DS_Store
+
+# Operit 会话备份 / git 对象快照。含完整聊天与仓库对象，
+# 一旦 git add -A 会把它们整个提交进仓库。
+.backup/

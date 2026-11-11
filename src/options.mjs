@@ -24,6 +24,12 @@ export function normalize(raw) {
   o.skip_stream = o.skip_stream === true
   o.dry_run = o.dry_run === true
 
+  // ========== 新增报文清洗相关布尔归一 ==========
+  o.enable_message_filter = o.enable_message_filter === true
+  o.strip_safety_system = o.strip_safety_system !== false
+  o.strip_deny_assistant = o.strip_deny_assistant === true
+  // ============================================
+
   o.models = toList(o.models)
   o.agents = toList(o.agents)
   o.agents_off = toList(o.agents_off)

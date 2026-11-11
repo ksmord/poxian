@@ -129,6 +129,9 @@ magpie plugin options poxian '{"override":true,"position":"prepend"}'
 | `max_payload_bytes` | `0` | 载荷字节上限。`0` = 不限制。超限时降级回内置版本，日志打 `oversize` + `requested_bytes` |
 | `skip_stream` | `false` | `true` 时流式请求直接跳过。识别 `body.stream`，以及 Gemini 的 `:streamGenerateContent` |
 | `dry_run` | `false` | 全流程照跑（含日志与 `payload_sha256`），但原请求一个字节不改。用来看"如果注入会发生什么" |
+| `enable_message_filter` | `false` | **报文清洗总开关**。开 = 注入前先删掉请求自带的冲突 system 与拒绝式 assistant 历史。默认关，旧行为不变 |
+| `strip_safety_system` | `true` | 清洗的子项：删命中关键词的 system 位。四种协议都认（chat 的 `system`/`developer` 消息、Anthropic 的 `system`、Responses 的 `instructions`、Gemini 的 `systemInstruction` / `system_instruction`） |
+| `strip_deny_assistant` | `false` | 清洗的子项：删历史里「抱歉 / 不能 / 无法」一类整条 assistant 回复。删完会合并相邻同角色消息，否则 Anthropic 要求 `user`/`assistant` 交替会直接 400 |
 
 **4. 换成你自己的提示词**——指向一个外部文件即可，**不需要重新构建、不需要重启**：
 
@@ -215,6 +218,7 @@ sequenceDiagram
     M->>H: body, ctx (protocol, agent, model, options)
     H->>H: agents / models 过滤？
     H->>H: 幂等标记检查
+    H->>H: 报文清洗？<br/>(enable_message_filter，排在幂等之后)
     H->>H: 激活词？→ 握手，否则选版本
     H->>H: 按协议选位置<br/>(system · messages[system] · instructions · systemInstruction)
     H-->>M: 已注入的 body
@@ -231,13 +235,14 @@ sequenceDiagram
 ## 测试
 
 ```bash
-node poxian.test.mjs        # 中间件行为：22 个用例，零依赖
-node scripts/check-page.mjs # 页面一致性：SCHEMA ↔ 中间件选项 ↔ HTML 元素，脏检测 12 项
+node poxian.test.mjs        # 声明式用例（cases.json）：33 条，零依赖
+node --test test/           # 单元 + 全链路：hooks 28 + filter 26 + chain 9 = 63 条
+node scripts/check-page.mjs # 页面一致性：SCHEMA ↔ 中间件选项 ↔ HTML 元素，脏检测 17 项
 ```
 
 `cases.json` 采用 magpie-community 的声明式用例格式（每个协议 `request` → `expect_request`），可直接并入任何兼容跑测器。
 
-`check-page.mjs` 是重构后新增的护栏：控制台表单字段由 `page/app.js` 顶部的 `SCHEMA` 数组声明，读表单 / 写表单 / 脏检测三处都遍历它。这个脚本扫源码，确认 SCHEMA 覆盖了中间件实际读取的每一个 `options.*` 键、每个 `el` 在 HTML 里都存在，并跑 12 条脏检测语义用例（缺省键、显式默认值、键序不同都不该被判为"有未保存修改"）。加选项忘了改页面，这一条会红。
+`check-page.mjs` 是重构后新增的护栏：控制台表单字段由 `page/app.js` 顶部的 `SCHEMA` 数组声明，读表单 / 写表单 / 脏检测三处都遍历它。这个脚本扫源码，确认 SCHEMA 覆盖了中间件实际读取的每一个 `options.*` 键、每个 `el` 在 HTML 里都存在，并跑 17 条脏检测语义用例（缺省键、显式默认值、键序不同都不该被判为"有未保存修改"）。加选项忘了改页面，这一条会红。
 
 ## 性能
 
@@ -271,7 +276,8 @@ poxian/
 ├── poxian.hooks.mjs          # 入口：异步钩子（magpie.hooks）· 有 fs · 空转/超时一律放行
 ├── poxian.middleware.js      # 兼容壳：同步中间件（magpie.middleware）· 无 fs · 已弃用
 ├── src/
-│   ├── core.mjs              # 纯逻辑：过滤 → 幂等 → 握手 → 注入（不碰 fs）
+│   ├── core.mjs              # 纯逻辑：过滤 → 幂等 → 清洗 → 握手 → 注入（不碰 fs）
+│   ├── filter.mjs            # 报文清洗：四协议 system 形状 + 拒绝历史合并（纯函数）
 │   ├── payload.mjs           # 外部文件读取 / BOM / UTF-16 / frontmatter / mtime 缓存
 │   ├── options.mjs           # 选项归一 + ~ $VAR %VAR% 路径展开
 │   ├── observe.mjs           # 每请求一行 JSONL

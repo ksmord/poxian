@@ -11,6 +11,7 @@ const SOURCES = [
   "../src/options.mjs",
   "../src/payload.mjs",
   "../src/observe.mjs",
+  "../src/filter.mjs",
 ]
 const mw = SOURCES.map((f) => readFileSync(new URL(f, import.meta.url), "utf8")).join("\n")
 const html = readFileSync(new URL("../page/index.html", import.meta.url), "utf8")
@@ -67,6 +68,10 @@ const pairs = [
   [{ handshake_model: "" }, {}],
   [{ enabled: true, cache: false }, {}],
   [{ models: [] }, {}],
+  // 报文清洗三键：默认值必须被视为「等价于不写」，否则页面一打开就显示脏
+  [{ enable_message_filter: false }, {}],
+  [{ strip_safety_system: true }, {}],
+  [{ strip_deny_assistant: false }, {}],
 ]
 const diffs = [
   [{ override: false }, {}],
@@ -74,6 +79,9 @@ const diffs = [
   [{ prompt: "v3" }, {}],
   [{ agents_off: ["codex"] }, {}],
   [{ enabled: false }, {}],
+  // 非默认值必须被视为脏，否则改开关页面不提示保存
+  [{ strip_safety_system: false }, {}],
+  [{ enable_message_filter: true }, {}],
 ]
 let bad = 0
 for (const [a, b] of pairs) {
@@ -102,4 +110,4 @@ if (missing.length || extra.length || missEl.length || bad || onlyCode.length ||
   console.log("\nFAILED")
   process.exit(1)
 }
-console.log("\nOK: schema/middleware/html aligned, dirty-check 12/12 correct")
+console.log("\nOK: schema/middleware/html aligned, dirty-check " + (pairs.length + diffs.length) + "/" + (pairs.length + diffs.length) + " correct")

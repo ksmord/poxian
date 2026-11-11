@@ -41,6 +41,9 @@ const SCHEMA = [
   { key: "models",    kind: "list", el: "md", def: [] },
   { key: "prompt",    kind: "ver",  def: DEFAULT_VERSION },
   { key: "on_prompt", kind: "prompt", el: "op", def: "" },
+  { key: "enable_message_filter", kind: "bool", el: "mf", def: false },
+  { key: "strip_safety_system",  kind: "bool", el: "sf", def: true },
+  { key: "strip_deny_assistant", kind: "bool", el: "sd", def: false },
 ]
 
 /* ---------- 小工具 ---------- */

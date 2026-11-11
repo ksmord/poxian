@@ -43,4 +43,9 @@ export const DEFAULTS = {
   dry_run: false,          // true = 全流程照跑，但原请求一个字节都不改
   max_payload_bytes: 0,    // 0 = 不限制；>0 且超限 → 降级回内置版本，并打 oversize 标记
   prompt_allowlist: [],    // prompt_path 允许的目录前缀；空 = 不限制（保持旧行为）
+
+  // ============ 新增报文清洗配置默认值 ============
+  enable_message_filter: false,   // 报文清洗总开关，默认关闭，兼容旧行为
+  strip_safety_system: true,      // 移除安全约束类 system，开启清洗时生效
+  strip_deny_assistant: false,   // 过滤历史 assistant 拒绝回复，默认关闭
 }

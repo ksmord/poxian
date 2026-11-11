@@ -350,6 +350,32 @@
   </section>
 
   <section>
+    <div class="sec-head"><h2>报文清洗</h2><span class="hint">注入前先删掉冲突的 system</span></div>
+    <div class="sec-body">
+      <div class="row">
+        <div><div class="lab">清洗总开关<code>enable_message_filter</code></div>
+             <div class="desc">开 = 注入前清掉请求自带的冲突 system 与拒绝式 assistant 历史。默认关，改了会影响上游行为</div></div>
+        <div class="ctl"><button class="switch" id="mf" role="switch" aria-checked="false" aria-label="enable_message_filter"></button></div>
+      </div>
+      <div class="row">
+        <div><div class="lab">删除安全约束 system<code>strip_safety_system</code></div>
+             <div class="desc">四种协议的 system 位都认：chat 的 system/developer 消息、Anthropic 的 system、Responses 的 instructions、Gemini 的 systemInstruction</div></div>
+        <div class="ctl"><button class="switch" id="sf" role="switch" aria-checked="true" aria-label="strip_safety_system"></button></div>
+      </div>
+      <div class="row">
+        <div><div class="lab">删除拒绝式回复<code>strip_deny_assistant</code></div>
+             <div class="desc">历史 assistant 里的「抱歉 / 不能 / 无法」一类整条移除；删完会合并相邻同角色消息，避免上游因角色不交替报错</div></div>
+        <div class="ctl"><button class="switch" id="sd" role="switch" aria-checked="false" aria-label="strip_deny_assistant"></button></div>
+      </div>
+      <div class="row">
+        <div><div class="lab">豁免范围</div>
+             <div class="desc">不是独立开关：命中上面「agent 黑名单」（<code>agents_off</code>）或未进「agent 白名单」的请求，在清洗之前就被 <code>precheck</code> 挡掉了</div></div>
+        <div class="ctl"><span class="hint">见上</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <div class="sec-head"><h2>智能体</h2><span class="hint">谁吃这份提示词</span></div>
     <details>
       <summary>逐个开关（关闭 = 该 agent 不注入）</summary>
