@@ -34,3 +34,8 @@ async function append(path, line) {
     // 磁盘满 / 权限错：观测失败不影响主流程
   }
 }
+
+// 等待队列写完。进程退出前 / 测试里需要确定性时调用。
+export function flush() {
+  return chain
+}
