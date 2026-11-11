@@ -85,7 +85,11 @@ export function handle(body, ctx, payload, o) {
     if (o.handshake_model) body.model = o.handshake_model
     const out = adapter.replace(body, payload.handshake)
     return out
-      ? { body: out, action: "handshake", meta: { protocol: adapter.id, model: o.handshake_model || undefined } }
+      ? {
+          body: out,
+          action: "handshake",
+          meta: { protocol: adapter.id, model: o.handshake_model || undefined, written: payload.handshake },
+        }
       : { action: "skip-write", meta: { protocol: adapter.id } }
   }
 
@@ -94,6 +98,6 @@ export function handle(body, ctx, payload, o) {
 
   const out = adapter.write(body, payload.text, { position: o.position, cache: o.cache })
   return out
-    ? { body: out, action: "inject", meta: { protocol: adapter.id, position: o.position } }
+    ? { body: out, action: "inject", meta: { protocol: adapter.id, position: o.position, written: payload.text } }
     : { action: "skip-write", meta: { protocol: adapter.id } }
 }

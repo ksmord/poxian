@@ -24,12 +24,13 @@ export async function onRequest(body, ctx) {
     payload.handshake = handshakeText()
 
     const r = handle(body, c, payload, o)
+    const { written, ...meta } = r.meta || {}
     record(o, c, {
       action: r.action,
       src: payload.source,
-      bytes: Buffer.byteLength(payload.text, "utf8"),
+      bytes: Buffer.byteLength(written || payload.text, "utf8"),
       ms: Date.now() - t0,
-      ...r.meta,
+      ...meta,
     })
     return r.body
   } catch (e) {

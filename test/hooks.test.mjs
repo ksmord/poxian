@@ -169,3 +169,15 @@ test("payload：文件缺失回退内置版本", async () => {
   assert.ok(r.source.startsWith("fallback:"))
   assert.ok(r.text.length > 100)
 })
+
+test("meta.written：握手记握手文本，注入记主 payload", () => {
+  const hs = { system: "OWN", messages: [{ role: "user", content: "寒霜" }] }
+  const r1 = run(hs, { protocol: "anthropic" })
+  assert.equal(r1.action, "handshake")
+  assert.ok(r1.meta.written.indexOf("poxian workbench kernel") !== -1)
+
+  const inj = { system: "OWN", messages: [{ role: "user", content: "普通请求" }] }
+  const r2 = run(inj, { protocol: "anthropic" })
+  assert.equal(r2.action, "inject")
+  assert.equal(r2.meta.written, TEXT)
+})
