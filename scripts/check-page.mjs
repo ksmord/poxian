@@ -110,6 +110,17 @@ console.log("\ndefaults ↔ manifest:", onlyCode.length || onlyManifest.length ?
 if (onlyCode.length) console.log("  code only:", onlyCode.join(", "))
 if (onlyManifest.length) console.log("  manifest only:", onlyManifest.join(", "))
 
+// 版本戳守卫：page/app.js 的 VERSION 与 index.html 的 ?v= 必须等于 package.json 的 version。
+// 这两处曾漂移五个版本（0.1.0~0.1.4 页面一直显示 0.0.6），症状是「更新后版本号不刷新」。
+const vMatch = src.match(/const VERSION = "([^"]*)"/)
+const qvs = [...html.matchAll(/\?v=([\w.-]+)/g)].map((m) => m[1])
+const badStamp = (vMatch ? vMatch[1] : null) !== pkg.version || qvs.some((x) => x !== pkg.version)
+console.log(
+  "page stamp ↔ package.json:",
+  badStamp ? `DRIFT (app=${vMatch && vMatch[1]}, ?v=${qvs.join("/") || "none"}, pkg=${pkg.version})` : "aligned",
+)
+if (badStamp) process.exit(1)
+
 if (missing.length || extra.length || missEl.length || bad || onlyCode.length || onlyManifest.length) {
   console.log("\nFAILED")
   process.exit(1)

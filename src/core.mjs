@@ -5,6 +5,7 @@ import { MARK, ACTIVATION } from "./constants.mjs"
 import { pick } from "./adapters/index.mjs"
 import { extractText } from "./text.mjs"
 import { filterMessages } from "./filter.mjs"
+import { makeNonce, withEcho } from "./probe.mjs"
 
 // 过滤语义与原实现逐条对齐：
 //   agents_off 命中 → 跳过（先判，握手也绕不过去）
@@ -137,6 +138,18 @@ function run(body, ctx, payload, o) {
 
   const existing = adapter.read(body)
 
+  // 探针回显：把标记追加到即将写入的载荷正文末尾。
+  // nonce 存进 ctx.state —— magpie 的 host 在同一请求的 onRequest 与
+  // onResponse 之间复用同一个 ctx 对象（run.plugins.push({h, ctx})），
+  // 所以这里写、响应钩子读，是唯一能跨两次调用传递的通道。
+  // 同步中间件壳没有 ctx.state，守卫一下，不影响旧路径。
+  let text = payload.text
+  if (o.probe_echo) {
+    const nonce = makeNonce()
+    text = withEcho(text, nonce)
+    if (c.state && typeof c.state === "object") c.state.probeNonce = nonce
+  }
+
   if (o.handshake && isActivation(body, adapter.id)) {
     if (o.handshake_model) body.model = o.handshake_model
     const out = adapter.replace(body, payload.handshake)
@@ -163,22 +176,22 @@ function run(body, ctx, payload, o) {
   // position 仍然生效：它在 override_mode 为 merge 时决定拼接方向，
   // 在 replace 模式下无意义（整段覆盖）。
   if (o.override_mode === "replace" && hasOwn) {
-    const out = adapter.replace(body, payload.text, { cache: o.cache })
+    const out = adapter.replace(body, text, { cache: o.cache })
     return out
       ? {
           body: out,
           action: "inject",
-          meta: { protocol: adapter.id, position: "replace", written: payload.text, ...tag },
+          meta: { protocol: adapter.id, position: "replace", written: text, ...tag },
         }
       : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
   }
 
-  const out = adapter.write(body, payload.text, { position: o.position, cache: o.cache })
+  const out = adapter.write(body, text, { position: o.position, cache: o.cache })
   return out
     ? {
         body: out,
         action: "inject",
-        meta: { protocol: adapter.id, position: o.position, written: payload.text, ...tag },
+        meta: { protocol: adapter.id, position: o.position, written: text, ...tag },
       }
     : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
 }

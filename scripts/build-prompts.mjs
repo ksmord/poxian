@@ -14,13 +14,15 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)))
 
 // 版本注册表：唯一真相。加版本 = 这里加一行 + 放一个 md。
 const VERSIONS_META = [
-  { id: "v52",      label: "完整版 v5.2", badge: "默认", desc: "吸收重写终版：工作台契约 + 红蓝蓝图 + 卡密专项 + 交付纪律", file: "prompts/v52.md" },
-  { id: "v5",       label: "轻量 V5",     badge: "",     desc: "v5 精简规范：工程原则 + 完整工作规范",               file: "prompts/v5.md" },
-  { id: "v4",       label: "轻量 V4",     badge: "",     desc: "v4 精简规范 + 旧版激活词握手",                       file: "prompts/v4.md" },
-  { id: "v3",       label: "轻量 V3",     badge: "",     desc: "v3 最短可用版",                                      file: "prompts/v3.md" },
+  { id: "fujiang",  label: "富江人格破甲", badge: "默认", desc: "实测 66% 交付率，5725 B 轻量首选", file: "prompts/富江人格破甲.md" },
+  { id: "guomo",    label: "国模破甲",    badge: "",     desc: "实测 45%，覆盖 5 条路由最广",       file: "prompts/国模破甲.md" },
+  { id: "yesha",    label: "夜煞",        badge: "",     desc: "实测 36%，体积最小 4784 B",         file: "prompts/yesha.md" },
+  { id: "npc",      label: "npc 破甲",    badge: "",     desc: "实测 36%，52987 B 重载，prefill 成本高", file: "prompts/npc破甲提示词.md" },
+  { id: "pojia",    label: "破甲 prompt", badge: "",     desc: "实测 27%，仅在 dp4.1f / hy4 有效",  file: "prompts/破甲_prompt.md" },
+  { id: "v3",       label: "寒霜 v3",     badge: "",     desc: "实测 9%，目标→计划→实现 结构会稀释正文", file: "prompts/寒霜v3.md" },
 ] 
 
-const DEFAULT_ID = "v5"
+const DEFAULT_ID = "fujiang"
 
 // 体量估算：CJK 约 1 token/字，其余约 4 字符/token。只用于界面提示，不参与注入。
 const CJK = /[\u3000-\u303F\u3400-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/
@@ -85,6 +87,29 @@ writeFileSync(
     "window.PX_VERSIONS = " + JSON.stringify(pv, null, 2) + "\n" +
     "window.PX_DEFAULT_VERSION = " + JSON.stringify(DEFAULT_ID) + "\n",
 )
+
+/* ---------- 版本戳：唯一来源是 package.json 的 version ---------- */
+// 页面显示版本（page/app.js 的 VERSION）与 index.html 的 ?v= 缓存戳都从这里出。
+// 背景：0.1.0~0.1.4 五个版本里页面一直显示 0.0.6，因为 VERSION 是手写的第二份常量，
+// git 历史里它最后一次被更新就是 0.0.6，之后没人与 package.json 同步过。
+// 改版本只改 package.json，跑一次 build，两处自动同步。
+const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
+const STAMP = pkg.version
+
+const appPath = join(root, "page/app.js")
+let appJs = readFileSync(appPath, "utf8")
+// 只在「模式没匹配到」时才算错。匹配到了但值本来就相等是幂等，不是失败——
+// 之前用 `stamped === appJs` 判错，导致构建第二次必然抛「没有 VERSION 常量可盖戳」。
+const VERSION_RE = /const VERSION = "[^"]*"/
+if (!VERSION_RE.test(appJs)) throw new Error("page/app.js 里没有 VERSION 常量可盖戳")
+const stamped = appJs.replace(VERSION_RE, `const VERSION = "${STAMP}"`)
+if (stamped !== appJs) writeFileSync(appPath, stamped)
+
+const htmlPath = join(root, "page/index.html")
+let htmlJs = readFileSync(htmlPath, "utf8")
+htmlJs = htmlJs.replace(/\?v=[0-9][\w.-]*/g, `?v=${STAMP}`)
+writeFileSync(htmlPath, htmlJs)
+console.log(`page 版本戳已同步 → ${STAMP}（app.js VERSION + index.html ?v=）`)
 
 /* ---------- 报告 ---------- */
 const total = loaded.reduce((n, v) => n + v.text.length, 0)

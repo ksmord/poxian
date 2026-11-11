@@ -11,6 +11,7 @@ import { normalize } from "./src/options.mjs"
 import { resolvePrompt, handshakeText } from "./src/payload.mjs"
 import { precheck, handle } from "./src/core.mjs"
 import { record } from "./src/observe.mjs"
+import { judge } from "./src/probe.mjs"
 import { createHash } from "node:crypto"
 
 export async function onRequest(body, ctx) {
@@ -60,6 +61,40 @@ export async function onRequest(body, ctx) {
       ms: Date.now() - t0,
     })
     return undefined
+  }
+}
+
+// 响应侧探针。magpie 会丢弃本函数的返回值（plugin-host host.js:1707），
+// 所以这里只能观测，不能改写回复——这是契约，不是实现缺陷。
+// 返回值留空，避免后来者误以为能改。
+export async function onResponse(reply, ctx) {
+  const c = ctx || {}
+  const o = normalize(c.options)
+
+  if (!o.enabled) return
+  if (!o.probe_echo && !o.probe_refusal) return
+
+  const nonce = c.state && typeof c.state === "object" ? c.state.probeNonce : null
+  if (o.probe_echo && !nonce) return // 上一轮没注入或没生成标记，无从判定
+
+  try {
+    const verdict = judge({
+      reply,
+      nonce,
+      wantEcho: o.probe_echo,
+      wantRefusal: o.probe_refusal,
+    })
+    record(o, c, {
+      action: "probe",
+      src: null,
+      bytes: 0,
+      ms: 0,
+      success: c.success === true,
+      ...(nonce ? { probe_nonce: nonce } : {}),
+      ...verdict,
+    })
+  } catch (e) {
+    record(o, c, { action: "probe-error", error: String((e && e.message) || e), ms: 0 })
   }
 }
 

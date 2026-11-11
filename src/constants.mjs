@@ -51,4 +51,10 @@ export const DEFAULTS = {
   enable_message_filter: false,   // 报文清洗总开关，默认关闭，兼容旧行为
   strip_safety_system: true,      // 移除安全约束类 system，开启清洗时生效
   strip_deny_assistant: false,   // 过滤历史 assistant 拒绝回复，默认关闭
+
+  // ============ 探针 ============
+  // 回答的是「注入有没有真的拿到控制权」，不是「字节写没写进去」。
+  // 详见 src/probe.mjs 开头的实测记录：同一份载荷在不同路由上，服从与拒绝并存。
+  probe_echo: false,     // 载荷末尾追加回显标记，约 +20 token，会改请求体
+  probe_refusal: false,  // 只读回复前 200 字符判拒答，不改请求，零 token 成本
 }

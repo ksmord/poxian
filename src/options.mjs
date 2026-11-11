@@ -33,6 +33,10 @@ export function normalize(raw) {
   o.strip_deny_assistant = o.strip_deny_assistant === true
   // ============================================
 
+  // 探针：两个独立开关，默认都关（echo 会改请求体，不该默默生效）
+  o.probe_echo = o.probe_echo === true
+  o.probe_refusal = o.probe_refusal === true
+
   o.models = toList(o.models)
   o.agents = toList(o.agents)
   o.agents_off = toList(o.agents_off)
