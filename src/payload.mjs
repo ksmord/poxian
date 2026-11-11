@@ -2,6 +2,7 @@
 // 这里持有 node:fs，只有异步钩子入口可以 import。
 
 import { readFile, stat } from "node:fs/promises"
+import { relative, isAbsolute } from "node:path"
 import { MARK, HANDSHAKE_TEXT } from "./constants.mjs"
 import { expandPath } from "./options.mjs"
 import { PROMPT, VERSIONS, DEFAULT_VERSION } from "../poxian-prompt.js"
@@ -88,10 +89,17 @@ function pickBundled(id) {
 // 优先级：on_prompt（字面） > prompt_path（文件） > prompt（版本 id） > 默认版本
 // 文件读失败不阻断请求：记 fallback，退回内置版本。
 export async function resolvePrompt(o, ctx) {
+  return applyLimit(await resolveRaw(o, ctx), o)
+}
+
+async function resolveRaw(o, ctx) {
   if (o.on_prompt) return { text: MARK + "\n" + o.on_prompt, source: "literal" }
 
   if (o.prompt_path) {
     const path = expandPath(o.prompt_path, ctx)
+    if (blocked(path, o, ctx)) {
+      return { ...pickBundled(o.prompt), source: "fallback:path-blocked", path_blocked: true }
+    }
     try {
       const text = await loadFile(path, o.strip_frontmatter)
       if (text) return { text: MARK + "\n" + text, source: "file:" + path }
@@ -103,6 +111,46 @@ export async function resolvePrompt(o, ctx) {
 
   const b = pickBundled(o.prompt)
   return { text: b.text, source: b.source }
+}
+
+// 载荷字节上限：超限就降级回内置版本，并打上 oversize 标记供日志报警。
+// max_payload_bytes = 0 时不限制，行为与旧版完全一致。
+function applyLimit(r, o) {
+  const bytes = Buffer.byteLength(r.text, "utf8")
+  const max = o.max_payload_bytes || 0
+  if (!max || bytes <= max) return { ...r, bytes }
+
+  const b = pickBundled(o.prompt)
+  return {
+    text: b.text,
+    source: "fallback:oversize",
+    oversize: true,
+    bytes: Buffer.byteLength(b.text, "utf8"),
+    requested_bytes: bytes,
+  }
+}
+
+// 目录白名单：空列表 = 不限制（保持旧行为）。
+// 比较用 path.relative 判越界，不用 startsWith（前缀兄弟目录会绕过）。
+// 已知限制：不做 realpath，符号链接绕行拦不住；Windows 大小写已归一。
+function blocked(target, o, ctx) {
+  const roots = o.prompt_allowlist
+  if (!roots || !roots.length) return false
+
+  const t = norm(target)
+  return !roots.some((root) => {
+    const r = norm(expandPath(root, ctx))
+    if (!r) return false
+    const rel = relative(r, t)
+    return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))
+  })
+}
+
+function norm(p) {
+  let s = String(p || "")
+  if (!s) return ""
+  if (process.platform === "win32" || /^[A-Za-z]:[\\/]/.test(s)) s = s.toLowerCase()
+  return s
 }
 
 export function handshakeText() {

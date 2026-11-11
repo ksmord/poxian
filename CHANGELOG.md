@@ -1,5 +1,45 @@
 # 更新说明
 
+## 0.1.1 · 工程加固：先判定后取载荷、路径白名单、载荷上限、指纹日志
+
+全部为**增量开关**，默认值与 0.1.0 一致：旧配置升级后行为不变（26 条快照用例 + 28 条钩子用例全绿）。
+
+### 性能：过滤前置
+
+- 新增 `precheck(body, ctx, o)`，把 `skip-body` / `skip-protocol` / 过滤三档从 `handle()` 里提出来。
+- `poxian.hooks.mjs` 先跑 `precheck`，命中就放行 —— **不再为被 `agents_off` 挡掉的请求白付一次 `stat` + `read`**。
+- 旧顺序是「先 `resolvePrompt()` 再过滤」，被排除的流量也照样读文件。
+
+### 安全：`prompt_path` 目录白名单
+
+- 新增 `prompt_allowlist`（默认 `[]` = 不限制，保持旧行为）。
+- 非空时用 `path.relative()` 判越界，不用 `startsWith()`（前缀兄弟目录可绕过）。
+- 越界不抛异常：回退内置版本，日志 `src=fallback:path-blocked` + `path_blocked: true`。
+- 已知限制：不做 `realpath`，符号链接绕行拦不住；Windows 大小写已归一。
+
+### 稳定性：载荷字节上限
+
+- 新增 `max_payload_bytes`（默认 `0` = 不限制）。
+- 超限降级回内置版本，日志打 `oversize: true` + `requested_bytes`。
+- 注意：降级目标本身仍可能超限（内置 `v52` 为 83154 B），此时按「能给的给最好」处理。
+
+### 观测：指纹与体量
+
+- 日志新增 `payload_bytes`、`payload_sha256`（只进日志，不进报文，不消耗 token）。
+- 用途：上游截断 / 抹掉 `<!--poxian-->` 时，靠同指纹的出现次数对账。
+- `log_backup_count`（默认 `1` = 旧行为，最大 `9`）控制轮转份数，`.N-1 → .N` 逐级后移。
+
+### 调试：dry-run 与流式跳过
+
+- `dry_run`（默认 `false`）：在 `structuredClone` 出的副本上跑完整流程，返回 `undefined`，原请求零改动。
+  适配器的 `write()` 是原地修改，所以必须克隆 —— 不能「算完再返回原对象」。
+- `skip_stream`（默认 `false`）：`body.stream === true` 或 `ctx.path` 含 `:streamGenerateContent`（Gemini）时跳过。
+
+### 修正
+
+- `constants.mjs` 注释：`agents` 与 `agents_off` 的实际判定顺序是**黑名单优先**，原注释写反了。
+- `scripts/check-page.mjs` 的 `ELSEWHERE` 补入 5 个高级选项，页面表单不暴露，走配置/命令行。
+
 ## 0.1.0 · 架构重构：同步中间件 → 异步钩子
 
 参照 `magpie-system-prompt-file` 的挂载方式重做数据流。**payload 生命周期不再绑死进程生命周期**，

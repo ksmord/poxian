@@ -17,15 +17,15 @@ export function record(o, ctx, data) {
       ...data,
     }) + "\n"
 
-  chain = chain.then(() => append(path, line)).catch(() => {})
+  chain = chain.then(() => append(path, line, o.log_backup_count)).catch(() => {})
 }
 
-async function append(path, line) {
+async function append(path, line, backups) {
   try {
     await mkdir(dirname(path), { recursive: true })
     try {
       const st = await stat(path)
-      if (st.size > MAX_BYTES) await rename(path, path + ".1")
+      if (st.size > MAX_BYTES) await rotate(path, backups)
     } catch {
       // 文件还不存在，正常
     }
@@ -33,6 +33,20 @@ async function append(path, line) {
   } catch {
     // 磁盘满 / 权限错：观测失败不影响主流程
   }
+}
+
+// 轮转：.N-1 → .N … .1 → .2，最后 current → .1。
+// backups = 1 时与旧版完全一致（只留 .1，直接覆盖）。
+async function rotate(path, backups) {
+  const n = Math.max(1, Math.min(9, Number(backups) || 1))
+  for (let i = n - 1; i >= 1; i--) {
+    try {
+      await rename(path + "." + i, path + "." + (i + 1))
+    } catch {
+      // 这一代不存在，跳过
+    }
+  }
+  await rename(path, path + ".1")
 }
 
 // 等待队列写完。进程退出前 / 测试里需要确定性时调用。

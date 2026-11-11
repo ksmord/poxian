@@ -568,5 +568,104 @@
         }
       ]
     }
+  },
+  {
+    "name": "stream: skip_stream 默认关，流式照常注入",
+    "options": {
+      "on_prompt": "P.",
+      "cache": false
+    },
+    "ctx": {
+      "stream": true
+    },
+    "request": {
+      "model": "m",
+      "stream": true,
+      "messages": [],
+      "system": "OWN"
+    },
+    "expect_request": {
+      "model": "m",
+      "stream": true,
+      "messages": [],
+      "system": "<!--poxian-->\nP.\nOWN"
+    }
+  },
+  {
+    "name": "stream: skip_stream 开，流式请求原样放行",
+    "options": {
+      "on_prompt": "P.",
+      "cache": false,
+      "skip_stream": true
+    },
+    "ctx": {
+      "stream": true
+    },
+    "request": {
+      "model": "m",
+      "stream": true,
+      "messages": [],
+      "system": "OWN"
+    },
+    "expect_request": {
+      "model": "m",
+      "stream": true,
+      "messages": [],
+      "system": "OWN"
+    }
+  },
+  {
+    "name": "stream: Gemini 的 :streamGenerateContent 也跳过",
+    "options": {
+      "on_prompt": "P.",
+      "cache": false,
+      "skip_stream": true
+    },
+    "ctx": {
+      "protocol": "gemini",
+      "path": "/v1beta/models/gemini-2.0:streamGenerateContent"
+    },
+    "request": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ]
+    },
+    "expect_request": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "dry_run: 全流程照跑，请求一个字节不动",
+    "options": {
+      "on_prompt": "P.",
+      "cache": false,
+      "dry_run": true
+    },
+    "request": {
+      "model": "m",
+      "messages": [],
+      "system": "OWN"
+    },
+    "expect_request": {
+      "model": "m",
+      "messages": [],
+      "system": "OWN"
+    }
   }
 ]

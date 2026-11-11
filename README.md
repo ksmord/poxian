@@ -123,7 +123,12 @@ magpie plugin options poxian '{"override":true,"position":"prepend"}'
 | `handshake_model` | 无 | 握手请求改派到该模型 |
 | `cache` | `false` | Anthropic `cache_control` 断点（仅真 Anthropic 端点建议开） |
 | `log` | `true` | 每请求写一行 JSONL 观测记录 |
-| `log_path` | `~/.config/magpie/logs/poxian.jsonl` | 观测日志路径，超过 2 MB 自动滚存为 `.1` |
+| `log_path` | `~/.config/magpie/logs/poxian.jsonl` | 观测日志路径，超过 2 MB 自动轮转 |
+| `log_backup_count` | `1` | 轮转备份份数。`1` = 旧行为（只留 `.1`），最大 `9` |
+| `prompt_allowlist` | `[]` | `prompt_path` 允许的目录前缀。空 = 不限制（旧行为）。非空时越界路径直接回退内置版本，日志打 `path_blocked` |
+| `max_payload_bytes` | `0` | 载荷字节上限。`0` = 不限制。超限时降级回内置版本，日志打 `oversize` + `requested_bytes` |
+| `skip_stream` | `false` | `true` 时流式请求直接跳过。识别 `body.stream`，以及 Gemini 的 `:streamGenerateContent` |
+| `dry_run` | `false` | 全流程照跑（含日志与 `payload_sha256`），但原请求一个字节不改。用来看"如果注入会发生什么" |
 
 **4. 换成你自己的提示词**——指向一个外部文件即可，**不需要重新构建、不需要重启**：
 

@@ -32,6 +32,11 @@ const ELSEWHERE = [
   "gatewayTimeoutMs",
   "log",
   "log_path",
+  "log_backup_count",
+  "skip_stream",
+  "dry_run",
+  "max_payload_bytes",
+  "prompt_allowlist",
 ]
 const missing = [...used].filter((k) => !keys.includes(k) && !ELSEWHERE.includes(k))
 const extra = keys.filter((k) => !used.has(k))

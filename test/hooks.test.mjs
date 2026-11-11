@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { normalize } from "../src/options.mjs"
-import { handle } from "../src/core.mjs"
+import { handle, precheck } from "../src/core.mjs"
 import { MARK, HANDSHAKE_TEXT, CACHE } from "../src/constants.mjs"
 import { resolvePrompt, _resetCache } from "../src/payload.mjs"
 
@@ -180,4 +180,63 @@ test("meta.written：握手记握手文本，注入记主 payload", () => {
   const r2 = run(inj, { protocol: "anthropic" })
   assert.equal(r2.action, "inject")
   assert.equal(r2.meta.written, TEXT)
+})
+
+test("precheck: agents_off 命中时不解析载荷就放行", () => {
+  const o = normalize({ agents_off: ["claude"] })
+  const r = precheck({ messages: [] }, { protocol: "anthropic", agent: "claude" }, o)
+  assert.equal(r.action, "skip-agent-off")
+  assert.equal(precheck({ messages: [] }, { protocol: "anthropic", agent: "codex" }, o), null)
+})
+
+test("dry_run: 照跑全流程，但 body 一个字节不动", () => {
+  const body = { system: "OWN", messages: [] }
+  const o = normalize({ dry_run: true })
+  const r = handle(body, { protocol: "anthropic" }, { text: TEXT, handshake: MARK + "\n" + HANDSHAKE_TEXT }, o)
+  assert.equal(r.body, undefined)
+  assert.equal(r.action, "inject")
+  assert.equal(r.meta.dry_run, true)
+  assert.equal(body.system, "OWN")
+})
+
+test("prompt_path: 白名单内放行，白名单外回退内置", async () => {
+  _resetCache()
+  const dir = await mkdtemp(join(tmpdir(), "poxian-allow-"))
+  const inside = join(dir, "ok.md")
+  await writeFile(inside, "ALLOWED", "utf8")
+
+  const ok = await resolvePrompt(normalize({ prompt_path: inside, prompt_allowlist: [dir] }), {})
+  assert.match(ok.source, /^file:/)
+  assert.ok(ok.text.includes("ALLOWED"))
+
+  const out = await resolvePrompt(
+    normalize({ prompt_path: join(dir, "..", "outside.md"), prompt_allowlist: [dir], prompt: "v3" }),
+    {},
+  )
+  assert.equal(out.source, "fallback:path-blocked")
+  assert.equal(out.path_blocked, true)
+})
+
+test("prompt_path: 空白名单不限制（旧行为）", async () => {
+  _resetCache()
+  const dir = await mkdtemp(join(tmpdir(), "poxian-any-"))
+  const f = join(dir, "x.md")
+  await writeFile(f, "ANYWHERE", "utf8")
+  const r = await resolvePrompt(normalize({ prompt_path: f }), {})
+  assert.match(r.source, /^file:/)
+})
+
+test("max_payload_bytes: 超限降级回内置并打 oversize", async () => {
+  const o = normalize({ on_prompt: "X".repeat(500), prompt: "v3", max_payload_bytes: 100 })
+  const r = await resolvePrompt(o, {})
+  assert.equal(r.source, "fallback:oversize")
+  assert.equal(r.oversize, true)
+  assert.ok(r.requested_bytes > 100)
+  assert.ok(r.bytes > 0)
+})
+
+test("max_payload_bytes: 0 表示不限制", async () => {
+  const r = await resolvePrompt(normalize({ on_prompt: "X".repeat(500) }), {})
+  assert.equal(r.source, "literal")
+  assert.equal(r.oversize, undefined)
 })

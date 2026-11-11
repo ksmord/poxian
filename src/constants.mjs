@@ -29,8 +29,8 @@ export const DEFAULTS = {
   handshake: true,         // 激活词轻路由
   handshake_model: "",     // 握手请求改派模型
   models: [],              // 模型名前缀白名单
-  agents: [],              // agent 白名单（优先于 agents_off）
-  agents_off: [],          // agent 黑名单
+  agents: [],              // agent 白名单
+  agents_off: [],          // agent 黑名单，最先判（黑名单优先于白名单，握手也绕不过）
   prompt: "",              // 内置版本 id：v52 / v5 / v4 / v3
   prompt_path: "",         // 外部 .md/.txt 路径（优先于 prompt）
   on_prompt: "",           // 字面文本（优先于 prompt_path）
@@ -38,4 +38,9 @@ export const DEFAULTS = {
   gatewayTimeoutMs: 3000,  // 读文件超时，超时即放行原请求
   log: true,
   log_path: "~/.config/magpie/logs/poxian.jsonl",
+  log_backup_count: 1,     // 轮转备份份数；1 = 与旧版一致（只留 .1）
+  skip_stream: false,      // true = 流式请求直接跳过注入
+  dry_run: false,          // true = 全流程照跑，但原请求一个字节都不改
+  max_payload_bytes: 0,    // 0 = 不限制；>0 且超限 → 降级回内置版本，并打 oversize 标记
+  prompt_allowlist: [],    // prompt_path 允许的目录前缀；空 = 不限制（保持旧行为）
 }

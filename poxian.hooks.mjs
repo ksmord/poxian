@@ -9,8 +9,9 @@
 
 import { normalize } from "./src/options.mjs"
 import { resolvePrompt, handshakeText } from "./src/payload.mjs"
-import { handle } from "./src/core.mjs"
+import { precheck, handle } from "./src/core.mjs"
 import { record } from "./src/observe.mjs"
+import { createHash } from "node:crypto"
 
 export async function onRequest(body, ctx) {
   const t0 = Date.now()
@@ -18,6 +19,20 @@ export async function onRequest(body, ctx) {
   const o = normalize(c.options)
 
   if (!o.enabled) return undefined
+
+  // 前置判定先跑：skip-* 类请求连 stat 都不做，直接放行。
+  // 旧版是“先解析载荷再过滤”，被 agents_off 挡掉的流量也要白付一次 IO。
+  const pre = precheck(body, c, o)
+  if (pre) {
+    record(o, c, {
+      action: pre.action,
+      src: null,
+      bytes: 0,
+      ms: Date.now() - t0,
+      ...(pre.meta || {}),
+    })
+    return undefined
+  }
 
   try {
     const payload = await withTimeout(resolvePrompt(o, c), o.gatewayTimeoutMs)
@@ -29,6 +44,10 @@ export async function onRequest(body, ctx) {
       action: r.action,
       src: payload.source,
       bytes: Buffer.byteLength(written || payload.text, "utf8"),
+      payload_bytes: payload.bytes,
+      payload_sha256: sha256(payload.text),
+      ...(payload.oversize ? { oversize: true, requested_bytes: payload.requested_bytes } : {}),
+      ...(payload.path_blocked ? { path_blocked: true } : {}),
       ms: Date.now() - t0,
       ...meta,
     })
@@ -60,4 +79,14 @@ function withTimeout(p, ms) {
       },
     )
   })
+}
+
+// 载荷指纹：只进日志，不进报文，不消耗 token。
+// 用途：事后对账——上游把 system 截断或抹掉标记时，靠这个对照同一份载荷的注入次数。
+function sha256(text) {
+  try {
+    return createHash("sha256").update(String(text), "utf8").digest("hex")
+  } catch {
+    return null
+  }
 }

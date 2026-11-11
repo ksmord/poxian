@@ -21,9 +21,20 @@ export function normalize(raw) {
   o.strip_frontmatter = o.strip_frontmatter !== false
   o.log = o.log !== false
 
+  o.skip_stream = o.skip_stream === true
+  o.dry_run = o.dry_run === true
+
   o.models = toList(o.models)
   o.agents = toList(o.agents)
   o.agents_off = toList(o.agents_off)
+  o.prompt_allowlist = toList(o.prompt_allowlist).map(str).filter(Boolean)
+
+  const backup = Number(o.log_backup_count)
+  o.log_backup_count =
+    Number.isInteger(backup) && backup > 0 ? Math.min(backup, 9) : DEFAULTS.log_backup_count
+
+  const max = Number(o.max_payload_bytes)
+  o.max_payload_bytes = Number.isFinite(max) && max > 0 ? Math.floor(max) : 0
 
   o.prompt = str(o.prompt)
   o.prompt_path = str(o.prompt_path)
