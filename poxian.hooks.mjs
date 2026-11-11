@@ -27,7 +27,7 @@ export async function onRequest(body, ctx) {
     record(o, c, {
       action: r.action,
       src: payload.source,
-      bytes: payload.text.length,
+      bytes: Buffer.byteLength(payload.text, "utf8"),
       ms: Date.now() - t0,
       ...r.meta,
     })
