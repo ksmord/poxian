@@ -1,4 +1,6 @@
 // OpenAI 兼容 chat：system 位是首条 role=system/developer 的 message。
+import { extractText } from "../text.mjs"
+
 function systemIndex(messages) {
   if (!Array.isArray(messages)) return -1
   for (let i = 0; i < messages.length; i++) {
@@ -8,24 +10,12 @@ function systemIndex(messages) {
   return -1
 }
 
-function textOf(content) {
-  if (typeof content === "string") return content
-  if (Array.isArray(content)) {
-    let out = ""
-    for (const p of content) {
-      if (p && typeof p === "object" && typeof p.text === "string") out += (out ? "\n" : "") + p.text
-    }
-    return out
-  }
-  return null
-}
-
 export default {
   id: "chat",
 
   read(body) {
     const i = systemIndex(body.messages)
-    return i === -1 ? null : textOf(body.messages[i].content)
+    return i === -1 ? null : extractText(body.messages[i].content)
   },
 
   write(body, text, { position }) {

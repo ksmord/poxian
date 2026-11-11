@@ -23,8 +23,5 @@ export function pick(protocol) {
   return BY_ID.get(p) || BY_ID.get(ALIASES[p]) || null
 }
 
-export function ids() {
-  return ADAPTERS.map((a) => a.id)
-}
 
 export default ADAPTERS

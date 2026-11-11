@@ -3,6 +3,7 @@
 
 import { MARK, ACTIVATION } from "./constants.mjs"
 import { pick } from "./adapters/index.mjs"
+import { extractText } from "./text.mjs"
 
 // 过滤语义与原实现逐条对齐：
 //   agents_off 命中 → 跳过（先判，握手也绕不过去）
@@ -38,7 +39,7 @@ function lastUserText(body, protocol) {
     if (!Array.isArray(arr)) return ""
     for (let i = arr.length - 1; i >= 0; i--) {
       const m = arr[i]
-      if (m && m.role === "user") return partsText(m.parts)
+      if (m && m.role === "user") return extractText(m.parts) || ""
     }
     return ""
   }
@@ -48,7 +49,7 @@ function lastUserText(body, protocol) {
     if (Array.isArray(inp)) {
       for (let i = inp.length - 1; i >= 0; i--) {
         const m = inp[i]
-        if (m && (m.role === "user" || m.type === "message")) return partsText(m.content)
+        if (m && (m.role === "user" || m.type === "message")) return extractText(m.content) || ""
       }
     }
     return ""
@@ -57,19 +58,7 @@ function lastUserText(body, protocol) {
   if (!Array.isArray(arr)) return ""
   for (let i = arr.length - 1; i >= 0; i--) {
     const m = arr[i]
-    if (m && m.role === "user") return partsText(m.content)
-  }
-  return ""
-}
-
-function partsText(content) {
-  if (typeof content === "string") return content
-  if (Array.isArray(content)) {
-    let out = ""
-    for (const p of content) {
-      if (p && typeof p.text === "string") out += (out ? "\n" : "") + p.text
-    }
-    return out
+    if (m && m.role === "user") return extractText(m.content) || ""
   }
   return ""
 }

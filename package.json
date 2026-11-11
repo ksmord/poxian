@@ -32,7 +32,8 @@
     "opencode",
     "opencode-plugin",
     "llm-gateway",
-    "prompt"
+    "prompt",
+    "magpie-hooks"
   ],
   "license": "MIT",
   "repository": {
@@ -80,9 +81,12 @@
     "diagrams": "node scripts/render-diagrams.mjs",
     "check:hooks": "node -e \"import('./poxian.hooks.mjs').then(m=>console.log(Object.keys(m)))\""
   },
-  "main": "./poxian.middleware.js",
+  "main": "./poxian.hooks.mjs",
   "exports": {
-    ".": "./poxian.middleware.js"
+    ".": "./poxian.hooks.mjs",
+    "./middleware": "./poxian.middleware.js",
+    "./prompt": "./poxian-prompt.js",
+    "./package.json": "./package.json"
   },
   "engines": {
     "node": ">=18"

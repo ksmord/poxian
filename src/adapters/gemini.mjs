@@ -1,4 +1,6 @@
 // Gemini：system 位是 systemInstruction 或 system_instruction，形状是 {parts:[{text}]} 或 string。
+import { extractText } from "../text.mjs"
+
 // 保留请求已有的字段名，不擅自改写 camel/snake。
 
 function keyOf(body) {
@@ -8,18 +10,6 @@ function keyOf(body) {
   if (body.systemInstruction !== undefined) return "systemInstruction"
   if (body.system_instruction !== undefined) return "system_instruction"
   return "systemInstruction"
-}
-
-function textOf(v) {
-  if (typeof v === "string") return v
-  if (v && typeof v === "object" && Array.isArray(v.parts)) {
-    let out = ""
-    for (const p of v.parts) {
-      if (p && typeof p.text === "string") out += (out ? "\n" : "") + p.text
-    }
-    return out
-  }
-  return null
 }
 
 // 统一按 {parts:[...]} 写回：Gemini 的 system 位是这个形状最稳。
@@ -42,7 +32,7 @@ export default {
   id: "gemini",
 
   read(body) {
-    return textOf(body[keyOf(body)])
+    return extractText(body[keyOf(body)])
   },
 
   write(body, text, { position }) {

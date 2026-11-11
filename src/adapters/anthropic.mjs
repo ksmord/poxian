@@ -1,17 +1,6 @@
 // Anthropic Messages API：system 位是 body.system，string 或 block 数组。
 import { CACHE, CACHE_LIMIT } from "../constants.mjs"
-
-function textOf(s) {
-  if (typeof s === "string") return s
-  if (Array.isArray(s)) {
-    let out = ""
-    for (const b of s) {
-      if (b && typeof b.text === "string") out += (out ? "\n" : "") + b.text
-    }
-    return out
-  }
-  return null
-}
+import { extractText } from "../text.mjs"
 
 // 4 个 cache_control 是硬上限，超了 API 直接 400。
 function hasCacheRoom(body) {
@@ -31,7 +20,7 @@ export default {
   id: "anthropic",
 
   read(body) {
-    return textOf(body.system)
+    return extractText(body.system)
   },
 
   write(body, text, { position, cache }) {

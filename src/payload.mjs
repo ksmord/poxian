@@ -56,7 +56,7 @@ function clean(text, stripFrontmatter) {
   return t.trim()
 }
 
-export async function loadFile(path, stripFrontmatter = true) {
+async function loadFile(path, stripFrontmatter = true) {
   const st = await stat(path)
   const key = path + "\u0000" + st.mtimeMs + "\u0000" + st.size + "\u0000" + (stripFrontmatter ? 1 : 0)
 

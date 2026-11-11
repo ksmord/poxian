@@ -1,5 +1,6 @@
 // 页面逻辑一致性校验：SCHEMA <-> 中间件选项 <-> HTML 元素 三方对齐 + 脏检测语义
 import { readFileSync } from "node:fs"
+import { DEFAULTS } from "../src/constants.mjs"
 
 const src = readFileSync(new URL("../page/app.js", import.meta.url), "utf8")
 // 重构后选项分散在入口、核心、payload、观测四处，扫描全部源码，不能只扫中间件壳
@@ -81,7 +82,18 @@ for (const [a, b] of diffs) {
   if (!differs) bad++
 }
 
-if (missing.length || extra.length || missEl.length || bad) {
+// DEFAULTS（代码）↔ package.json magpie.options（配置）必须同键集。
+// 这两处漂移过一次，表现是「改了配置没反应」，排查代价很高。
+const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+const manifest = Object.keys((pkg.magpie && pkg.magpie.options) || {})
+const codeKeys = Object.keys(DEFAULTS)
+const onlyCode = codeKeys.filter((k) => !manifest.includes(k))
+const onlyManifest = manifest.filter((k) => !codeKeys.includes(k))
+console.log("\ndefaults ↔ manifest:", onlyCode.length || onlyManifest.length ? "DRIFT" : "aligned")
+if (onlyCode.length) console.log("  code only:", onlyCode.join(", "))
+if (onlyManifest.length) console.log("  manifest only:", onlyManifest.join(", "))
+
+if (missing.length || extra.length || missEl.length || bad || onlyCode.length || onlyManifest.length) {
   console.log("\nFAILED")
   process.exit(1)
 }
