@@ -123,7 +123,7 @@ magpie plugin options poxian '{"override":true,"position":"prepend"}'
 | `handshake_model` | 无 | 握手请求改派到该模型 |
 | `cache` | `false` | Anthropic `cache_control` 断点（仅真 Anthropic 端点建议开） |
 | `log` | `true` | 每请求写一行 JSONL 观测记录 |
-| `log_path` | `~/.magpie/logs/poxian.jsonl` | 观测日志路径，超过 2 MB 自动滚存为 `.1` |
+| `log_path` | `~/.config/magpie/logs/poxian.jsonl` | 观测日志路径，超过 2 MB 自动滚存为 `.1` |
 
 **4. 换成你自己的提示词**——指向一个外部文件即可，**不需要重新构建、不需要重启**：
 

@@ -37,5 +37,5 @@ export const DEFAULTS = {
   strip_frontmatter: true, // 剥掉 md 开头的 --- 段
   gatewayTimeoutMs: 3000,  // 读文件超时，超时即放行原请求
   log: true,
-  log_path: "~/.magpie/logs/poxian.jsonl",
+  log_path: "~/.config/magpie/logs/poxian.jsonl",
 }

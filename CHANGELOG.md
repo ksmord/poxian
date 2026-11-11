@@ -37,7 +37,7 @@
 
 ### 观测
 
-- 每请求一行 JSONL（默认 `~/.magpie/logs/poxian.jsonl`，超 2 MB 滚存 `.1`）：
+- 每请求一行 JSONL（默认 `~/.config/magpie/logs/poxian.jsonl`，超 2 MB 滚存 `.1`）：
   `{ts, agent, model, action, src, bytes, ms, protocol, position}`
 - `action` 取值可直接定位问题：`inject` / `handshake` / `skip-mark` / `skip-override` /
   `skip-agent-off` / `skip-agent-list` / `skip-model` / `skip-protocol` / `error`
