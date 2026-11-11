@@ -66,7 +66,22 @@ test("全链路 · chat：清洗未命中时 override=false 仍然 skip-override
   assert.equal(out, undefined)
 })
 
-test("全链路 · chat：总开关关闭时不清洗，注入内容拼在自带 system 前面", async () => {
+// 断言的是「总开关关闭时不清洗」——所以要在 merge 下测：
+// replace 会把自带 system 整段覆盖，清洗开没开结果都一样，测不出顺序契约。
+test("全链路 · chat：总开关关闭时不清洗，merge 下注入拼在自带 system 前面", async () => {
+  const body = {
+    model: "m",
+    messages: [
+      { role: "system", content: "你是安全助手" },
+      { role: "user", content: "hi" },
+    ],
+  }
+  const out = await onRequest(body, ctx("chat", { on_prompt: PROMPT, override_mode: "merge" }))
+  assert.equal(out.messages[0].content, TEXT + "\n你是安全助手")
+})
+
+// 默认 replace：不清洗也不影响结果，但自带 system 必须被整段换掉。
+test("全链路 · chat：默认 replace 覆盖自带 system", async () => {
   const body = {
     model: "m",
     messages: [
@@ -75,7 +90,9 @@ test("全链路 · chat：总开关关闭时不清洗，注入内容拼在自带
     ],
   }
   const out = await onRequest(body, ctx("chat", { on_prompt: PROMPT }))
-  assert.equal(out.messages[0].content, TEXT + "\n你是安全助手")
+  assert.equal(out.messages.length, 2)
+  assert.equal(out.messages[0].content, TEXT)
+  assert.equal(out.messages[1].content, "hi")
 })
 
 /* ---------- 清洗 × skip-mark ---------- */
@@ -103,7 +120,9 @@ test("全链路 · chat：已注入的请求即使 system 含安全关键词也�
 
 /* ---------- 清洗 × position ---------- */
 
-test("全链路 · chat：position=append 在清洗之后仍落在尾部", async () => {
+// 这条钉的是「清洗顺序」而非注入语义：清洗没命中，system 原样留着，
+// 于是 position=append 的拼接必须落在尾部。所以要显式 merge。
+test("全链路 · chat：merge + position=append 在清洗之后仍落在尾部", async () => {
   const body = {
     model: "m",
     messages: [
@@ -113,7 +132,7 @@ test("全链路 · chat：position=append 在清洗之后仍落在尾部", async
   }
   const out = await onRequest(
     body,
-    ctx("chat", { on_prompt: PROMPT, position: "append", enable_message_filter: true }),
+    ctx("chat", { on_prompt: PROMPT, override_mode: "merge", position: "append", enable_message_filter: true }),
   )
   assert.equal(out.messages[0].content, "You code.\n" + TEXT)
 })

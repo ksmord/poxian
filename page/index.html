@@ -317,8 +317,18 @@
         <div class="ctl"><button class="switch" id="ov" role="switch" aria-checked="true" aria-label="override"></button></div>
       </div>
       <div class="row">
+        <div><div class="lab">覆盖方式<code>override_mode</code></div>
+             <div class="desc">replace = 请求自带 system 时整段替换（默认，实机验证唯一能让注入生效的方式）；merge = 保留原生 system 并按下方位置拼接，旧行为</div></div>
+        <div class="ctl">
+          <div class="seg" id="modeSeg">
+            <label><input type="radio" name="mode" value="replace" checked><span>替换</span></label>
+            <label><input type="radio" name="mode" value="merge"><span>拼接</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="row">
         <div><div class="lab">位置<code>position</code></div>
-             <div class="desc">前置更利于命中缓存</div></div>
+             <div class="desc">仅 override_mode=merge 时生效。实机测试：拼接无论前置还是追加都无法让注入取得控制权</div></div>
         <div class="ctl">
           <div class="seg" id="posSeg">
             <label><input type="radio" name="pos" value="prepend" checked><span>前置</span></label>

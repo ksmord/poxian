@@ -26,7 +26,8 @@
     "name": "Anthropic: override prepends to a string (default position)",
     "options": {
       "on_prompt": "P.",
-      "override": true
+      "override": true,
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -54,7 +55,8 @@
     "options": {
       "on_prompt": "P.",
       "override": true,
-      "position": "append"
+      "position": "append",
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -91,7 +93,8 @@
   {
     "name": "Anthropic: array system gets a block in front",
     "options": {
-      "on_prompt": "P."
+      "on_prompt": "P.",
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -157,7 +160,8 @@
     },
     "options": {
       "on_prompt": "P.",
-      "override": true
+      "override": true,
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -194,7 +198,8 @@
     "options": {
       "on_prompt": "P.",
       "override": true,
-      "position": "append"
+      "position": "append",
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -254,7 +259,8 @@
     },
     "options": {
       "on_prompt": "P.",
-      "override": true
+      "override": true,
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -273,7 +279,8 @@
       "protocol": "gemini"
     },
     "options": {
-      "on_prompt": "P."
+      "on_prompt": "P.",
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -305,7 +312,8 @@
       "protocol": "gemini"
     },
     "options": {
-      "on_prompt": "P."
+      "on_prompt": "P.",
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -573,7 +581,8 @@
     "name": "stream: skip_stream 默认关，流式照常注入",
     "options": {
       "on_prompt": "P.",
-      "cache": false
+      "cache": false,
+      "override_mode": "merge"
     },
     "ctx": {
       "stream": true
@@ -737,7 +746,8 @@
     "options": {
       "on_prompt": "P.",
       "enable_message_filter": true,
-      "strip_safety_system": true
+      "strip_safety_system": true,
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -903,7 +913,8 @@
     },
     "options": {
       "on_prompt": "P.",
-      "cache": false
+      "cache": false,
+      "override_mode": "merge"
     },
     "request": {
       "model": "m",
@@ -930,6 +941,132 @@
           "content": "hi"
         }
       ]
+    }
+  },
+  {
+    "name": "Anthropic: 默认 replace 整段覆盖自带 system",
+    "options": {
+      "on_prompt": "P.",
+      "cache": false
+    },
+    "request": {
+      "model": "m",
+      "system": "You code.",
+      "messages": []
+    },
+    "expect_request": {
+      "model": "m",
+      "system": "<!--poxian-->\nP.",
+      "messages": []
+    }
+  },
+  {
+    "name": "Anthropic: replace 时 cache 仍要挂断点",
+    "options": {
+      "on_prompt": "P.",
+      "cache": true
+    },
+    "request": {
+      "model": "m",
+      "system": "You code.",
+      "messages": []
+    },
+    "expect_request": {
+      "model": "m",
+      "system": [
+        {
+          "type": "text",
+          "text": "<!--poxian-->\nP.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "messages": []
+    }
+  },
+  {
+    "name": "Chat: 默认 replace 覆盖 developer 消息正文",
+    "options": {
+      "on_prompt": "P.",
+      "cache": false
+    },
+    "ctx": {
+      "protocol": "chat"
+    },
+    "request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "developer",
+          "content": "You code."
+        },
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    },
+    "expect_request": {
+      "model": "m",
+      "messages": [
+        {
+          "role": "developer",
+          "content": "<!--poxian-->\nP."
+        },
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Responses: 默认 replace 覆盖 instructions",
+    "options": {
+      "on_prompt": "P."
+    },
+    "ctx": {
+      "protocol": "responses"
+    },
+    "request": {
+      "model": "m",
+      "instructions": "You code.",
+      "input": []
+    },
+    "expect_request": {
+      "model": "m",
+      "instructions": "<!--poxian-->\nP.",
+      "input": []
+    }
+  },
+  {
+    "name": "Gemini: 默认 replace 覆盖 systemInstruction.parts",
+    "options": {
+      "on_prompt": "P."
+    },
+    "ctx": {
+      "protocol": "gemini"
+    },
+    "request": {
+      "model": "m",
+      "systemInstruction": {
+        "parts": [
+          {
+            "text": "You code."
+          }
+        ]
+      }
+    },
+    "expect_request": {
+      "model": "m",
+      "systemInstruction": {
+        "parts": [
+          {
+            "text": "<!--poxian-->\nP."
+          }
+        ]
+      }
     }
   }
 ]

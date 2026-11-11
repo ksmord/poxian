@@ -25,7 +25,7 @@ const $ = (id) => document.getElementById(id)
 /* ================= 字段声明（唯一真相） =================
    kind:
      bool   — 开关按钮，默认 true；OFF 时写入 false
-     seg    — 分段单选，默认 "prepend"；非默认时写入选中值
+     seg    — 分段单选，默认 f.def；不在 f.opts 里的值一律回落到 f.def
      text   — 文本输入，默认 ""；非空时写入
      list   — 逗号分隔列表，默认 []；非空时写入
      ver    — 版本选择器（.prow[data-ver]），默认 DEFAULT_VERSION
@@ -34,7 +34,8 @@ const $ = (id) => document.getElementById(id)
 const SCHEMA = [
   { key: "enabled",   kind: "bool", el: "en", def: true },
   { key: "override",  kind: "bool", el: "ov", def: true },
-  { key: "position",  kind: "seg",  el: "posSeg", name: "pos", def: "prepend" },
+  { key: "override_mode", kind: "seg", el: "modeSeg", name: "mode", def: "replace", opts: ["replace", "merge"] },
+  { key: "position",  kind: "seg",  el: "posSeg", name: "pos", def: "prepend", opts: ["prepend", "append"] },
   { key: "cache",     kind: "bool", el: "ce", def: false },
   { key: "handshake", kind: "bool", el: "hs", def: true },
   { key: "handshake_model", kind: "text", el: "hm", def: "" },
@@ -159,7 +160,7 @@ function normOptions(o) {
   for (const f of SCHEMA) {
     const v = x[f.key] === undefined ? f.def : x[f.key]
     if (f.kind === "bool") out[f.key] = v !== false
-    else if (f.kind === "seg") out[f.key] = v === "append" ? "append" : "prepend"
+    else if (f.kind === "seg") out[f.key] = (f.opts || []).indexOf(v) === -1 ? f.def : v
     else if (f.kind === "list") out[f.key] = norm(v)
     else if (f.kind === "ver") out[f.key] = typeof v === "string" && v ? v : DEFAULT_VERSION
     else out[f.key] = typeof v === "string" ? v : ""
@@ -212,7 +213,7 @@ function optionsToForm(o) {
     if (f.kind === "bool") {
       $(f.el).setAttribute("aria-checked", pick(f) !== false ? "true" : "false")
     } else if (f.kind === "seg") {
-      const v = pick(f) === "append" ? "append" : "prepend"
+      const v = (f.opts || []).indexOf(pick(f)) === -1 ? f.def : pick(f)
       const input = document.querySelector('input[name="' + f.name + '"][value="' + v + '"]')
       if (input) input.checked = true
     } else if (f.kind === "text") {
@@ -435,7 +436,12 @@ async function main() {
       sync()
     })
   }
-  $("posSeg").addEventListener("change", sync)
+  // 所有 seg 字段都要绑 change：漏绑会有两个后果——点了单选不刷新脏状态，
+  // 新值也读不进 formToOptions。这里按 SCHEMA 遍历，加字段不用再改这一行。
+  for (const f of SCHEMA) {
+    if (f.kind !== "seg") continue
+    $(f.el).addEventListener("change", sync)
+  }
   for (const f of SCHEMA) {
     if (f.kind === "text" || f.kind === "list" || f.kind === "prompt") $(f.el).addEventListener("input", sync)
   }

@@ -216,6 +216,9 @@ test("接线：未命中时 meta 不带 filtered", () => {
   assert.equal(r.meta.filtered, undefined)
 })
 
+// 断言「子键为 true 也不动报文」需要一个能观察的载体：原 system 必须还在。
+// replace 下 system 会被整段覆盖，清洗开没开都得同一结果，这条会变成废用例。
+// 所以显式走 merge，让未被清洗掉的后半段留在报文里可断言。
 test("接线：总开关关闭时 policy 子键即使为 true 也不动报文", () => {
   const body = { system: "你是安全助手", messages: [] }
   run(body, { protocol: "anthropic" }, {
@@ -223,6 +226,7 @@ test("接线：总开关关闭时 policy 子键即使为 true 也不动报文", 
     cache: false,
     enable_message_filter: false,
     strip_safety_system: true,
+    override_mode: "merge",
   })
   assert.ok(body.system.indexOf("你是安全助手") !== -1)
 })

@@ -23,23 +23,35 @@ test("anthropic: 无 system 时写入字符串", () => {
   assert.equal(body.system, TEXT)
 })
 
-test("anthropic: prepend 到已有字符串", () => {
+// 这一组钉的是 merge（拼接）路径本身。默认已改为 replace，
+// 不显式写 override_mode 的话这些断言会全线失效——而且是静默变成 replace 语义。
+test("anthropic: merge + prepend 到已有字符串", () => {
   const body = { system: "OWN", messages: [] }
-  run(body, { protocol: "anthropic" }, { position: "prepend" })
+  run(body, { protocol: "anthropic" }, { override_mode: "merge", position: "prepend" })
   assert.equal(body.system, TEXT + "\nOWN")
 })
 
-test("anthropic: append 到已有字符串", () => {
+test("anthropic: merge + append 到已有字符串", () => {
   const body = { system: "OWN", messages: [] }
-  run(body, { protocol: "anthropic" }, { position: "append" })
+  run(body, { protocol: "anthropic" }, { override_mode: "merge", position: "append" })
   assert.equal(body.system, "OWN\n" + TEXT)
 })
 
-test("anthropic: block 数组 prepend", () => {
+test("anthropic: block 数组 merge prepend", () => {
   const body = { system: [{ type: "text", text: "OWN" }], messages: [] }
-  run(body, { protocol: "anthropic" })
+  run(body, { protocol: "anthropic" }, { override_mode: "merge" })
   assert.equal(body.system.length, 2)
   assert.equal(body.system[0].text, TEXT)
+})
+
+// 默认语义：请求自带 system 时整段替换。
+// 这是实机 A/B 的结论，不是审美选择——拼接拿不到控制权。
+test("anthropic: 默认 replace 整段覆盖", () => {
+  const body = { system: "OWN", messages: [] }
+  const r = run(body, { protocol: "anthropic" })
+  assert.equal(r.action, "inject")
+  assert.equal(r.meta.position, "replace")
+  assert.equal(body.system, TEXT)
 })
 
 test("anthropic: cache 打开时挂 cache_control", () => {
@@ -63,11 +75,22 @@ test("chat: 无 system 时插到最前", () => {
   assert.equal(body.messages.length, 2)
 })
 
-test("chat: 已有 system 时 prepend 合并", () => {
+// 这条钉的是 merge 路径下「已有 system 时 prepend 拼接」。
+// 默认 replace 下同样的请求会被整段覆盖，所以必须显式声明 merge。
+test("chat: 已有 system 时 merge prepend 合并", () => {
   const body = { messages: [{ role: "system", content: "OWN" }, { role: "user", content: "x" }] }
-  run(body, { protocol: "chat" })
+  run(body, { protocol: "chat" }, { override_mode: "merge" })
   assert.equal(body.messages.length, 2)
   assert.equal(body.messages[0].content, TEXT + "\nOWN")
+})
+
+// 默认语义：chat 的 system 位（含 developer）也要整段替换。
+test("chat: 默认 replace 覆盖已有 system", () => {
+  const body = { messages: [{ role: "system", content: "OWN" }, { role: "user", content: "x" }] }
+  const r = run(body, { protocol: "chat" })
+  assert.equal(r.meta.position, "replace")
+  assert.equal(body.messages[0].content, TEXT)
+  assert.equal(body.messages[1].content, "x")
 })
 
 test("responses: 写 instructions", () => {
@@ -76,11 +99,20 @@ test("responses: 写 instructions", () => {
   assert.equal(body.instructions, TEXT)
 })
 
-test("gemini: 保留 snake_case 字段名", () => {
+test("gemini: merge 下保留 snake_case 字段名", () => {
   const body = { system_instruction: { parts: [{ text: "OWN" }] }, contents: [] }
-  run(body, { protocol: "gemini" }, { position: "append" })
+  run(body, { protocol: "gemini" }, { override_mode: "merge", position: "append" })
   assert.ok(Array.isArray(body.system_instruction.parts))
   assert.equal(body.system_instruction.parts.length, 2)
+  assert.equal(body.systemInstruction, undefined)
+})
+
+// replace 同样要守住字段名：不能把 snake_case 请求改写回 camelCase。
+test("gemini: replace 下仍保留 snake_case 字段名", () => {
+  const body = { system_instruction: { parts: [{ text: "OWN" }] }, contents: [] }
+  run(body, { protocol: "gemini" })
+  assert.equal(body.system_instruction.parts.length, 1)
+  assert.equal(body.system_instruction.parts[0].text, TEXT)
   assert.equal(body.systemInstruction, undefined)
 })
 

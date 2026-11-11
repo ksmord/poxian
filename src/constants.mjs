@@ -24,7 +24,10 @@ export const HANDSHAKE_TEXT = [
 export const DEFAULTS = {
   enabled: true,
   override: true,          // false = 请求已自带 system prompt 时跳过
-  position: "prepend",     // prepend | append
+  // replace = 请求自带 system 时整段替换（实机验证：拼接无法让注入取得控制权）
+  // merge   = 旧行为，按 position 拼接。保留给「必须保留原生 system」的场景
+  override_mode: "replace",
+  position: "prepend",     // prepend | append（仅 override_mode=merge 时有意义）
   cache: false,            // Anthropic cache_control 断点
   handshake: true,         // 激活词轻路由
   handshake_model: "",     // 握手请求改派模型

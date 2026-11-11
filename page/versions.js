@@ -30,8 +30,8 @@ window.PX_VERSIONS = [
     "label": "轻量 V3",
     "badge": "",
     "desc": "v3 最短可用版",
-    "chars": 2240,
-    "tokens": 2033
+    "chars": 2508,
+    "tokens": 2212
   }
 ]
 window.PX_DEFAULT_VERSION = "v5"

@@ -152,6 +152,27 @@ function run(body, ctx, payload, o) {
   const hasOwn = typeof existing === "string" && existing.trim() !== ""
   if (hasOwn && !o.override) return { action: "skip-override", meta: { protocol: adapter.id, ...tag } }
 
+  // override=true 且请求已自带 system 时，默认整段替换而不是拼接。
+  // 依据是实机 A/B 结论（group/k3 干净模型，四组对照）：
+  //   自带 system + prepend 注入 → 模型仍是原生人格，注入读到了但没取得控制权
+  //   自带 system + append  注入 → 同上，位置对结果没有影响
+  //   system 位只留注入          → 注入生效
+  // 也就是说「前置 = 更高优先级」这个假设不成立：只要原 system 还在，
+  // 模型会稳定按原 system 的身份回答。所以要让注入真正生效，必须替换。
+  //
+  // position 仍然生效：它在 override_mode 为 merge 时决定拼接方向，
+  // 在 replace 模式下无意义（整段覆盖）。
+  if (o.override_mode === "replace" && hasOwn) {
+    const out = adapter.replace(body, payload.text, { cache: o.cache })
+    return out
+      ? {
+          body: out,
+          action: "inject",
+          meta: { protocol: adapter.id, position: "replace", written: payload.text, ...tag },
+        }
+      : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
+  }
+
   const out = adapter.write(body, payload.text, { position: o.position, cache: o.cache })
   return out
     ? {

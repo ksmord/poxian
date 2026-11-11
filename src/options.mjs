@@ -16,6 +16,9 @@ export function normalize(raw) {
   o.enabled = o.enabled !== false
   o.override = o.override !== false
   o.position = o.position === "append" ? "append" : "prepend"
+  // 只有显式写 merge 才回退旧拼接行为，其余一律整段替换。
+  // 理由见 core.mjs 的 override_mode 分支：拼接在实机 A/B 里从未让注入生效。
+  o.override_mode = o.override_mode === "merge" ? "merge" : "replace"
   o.cache = o.cache === true
   o.handshake = o.handshake !== false
   o.strip_frontmatter = o.strip_frontmatter !== false

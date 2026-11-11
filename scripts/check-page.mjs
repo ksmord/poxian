@@ -68,6 +68,8 @@ const pairs = [
   [{ handshake_model: "" }, {}],
   [{ enabled: true, cache: false }, {}],
   [{ models: [] }, {}],
+  // override_mode 默认 replace：不写就等于 replace，否则页面一打开就脏
+  [{ override_mode: "replace" }, {}],
   // 报文清洗三键：默认值必须被视为「等价于不写」，否则页面一打开就显示脏
   [{ enable_message_filter: false }, {}],
   [{ strip_safety_system: true }, {}],
@@ -75,6 +77,8 @@ const pairs = [
 ]
 const diffs = [
   [{ override: false }, {}],
+  // merge 是非默认值：显式选了拼接就必须让页面提示保存
+  [{ override_mode: "merge" }, {}],
   [{ position: "append" }, {}],
   [{ prompt: "v3" }, {}],
   [{ agents_off: ["codex"] }, {}],

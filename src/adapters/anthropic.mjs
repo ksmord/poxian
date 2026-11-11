@@ -3,7 +3,8 @@ import { CACHE, CACHE_LIMIT } from "../constants.mjs"
 import { extractText } from "../text.mjs"
 
 // 4 个 cache_control 是硬上限，超了 API 直接 400。
-function hasCacheRoom(body) {
+// skipSystem：整段替换时旧 body.system 会被丢弃，不该再占用额度。
+function hasCacheRoom(body, skipSystem) {
   let n = 0
   const bump = (blocks) => {
     if (!Array.isArray(blocks)) return
@@ -11,7 +12,7 @@ function hasCacheRoom(body) {
       if (b && b.cache_control) n++
     }
   }
-  bump(body.system)
+  if (!skipSystem) bump(body.system)
   if (Array.isArray(body.messages)) for (const m of body.messages) if (m) bump(m.content)
   return n < CACHE_LIMIT
 }
@@ -52,8 +53,13 @@ export default {
     return undefined
   },
 
-  replace(body, text) {
-    body.system = text
+  // 整段替换。cache 打开时仍要挂断点并返回 block 数组——否则默认模式
+  // （override_mode=replace）下 cache 会静默失效，表现为「开了缓存不生效」。
+  // skipSystem=true：旧的 body.system 即将被丢弃，不参与额度计算。
+  replace(body, text, { cache } = {}) {
+    const block = { type: "text", text }
+    if (cache && hasCacheRoom(body, true)) block.cache_control = CACHE
+    body.system = block.cache_control ? [block] : text
     return body
   },
 }
