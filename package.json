@@ -1,6 +1,6 @@
 {
   "name": "poxian",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "poxian · magpie 网关异步钩子中间件 + 控制台页面：把完整工作台系统提示词写进每一个经过网关的请求，落在各协议自己的 system 位置。上游 fork 自 https://github.com/YaoGuaiLi/hangong",
   "type": "module",
   "files": [

@@ -1,5 +1,16 @@
 # 更新说明
 
+## 0.2.1 · 保存不再被旧 schema 卡死
+
+- **现象**：升级到 0.2.0 后点「保存配置」没反应，右下角一直挂着「有未保存的改动」。
+- **成因**：`magpie.options.set` 是整份替换 + 按 schema 校验键。宿主在插件加载时缓存了旧 schema，新键 `probe_echo_position` 判为 unknown option → 整个对象被拒 → 页面这边只 `console.warn`，界面上什么都不说。
+- **修法（页面侧，三层兜底）**：
+  1. 写入被拒且报错像 unknown option 时，按宿主上一次 `get()` 返回的键集合裁一遍**自动重试一次**，并提示「重载插件后新键才生效」；
+  2. 宿主用 `{ok:false,error}` 而不是抛错来拒绝时，这条回执**不再被当成配置读回去**（旧代码会，导致脏检测永远判脏），原样保留 `loaded`；
+  3. `formToOptions()` 对分段控件做空值保护——旧 HTML 配新 `app.js` 时少了 radio，原来直接 `.value` 抛 TypeError，`save()` 整个挂掉、界面永远停在「有未保存的改动」。
+- **保存失败会说话了**：读表单抛错不再静默，toast 直接给原因。
+- 测试：`node --test` 120 条全绿；`scripts/check-page.mjs` 的 `defaults ↔ manifest`、版本戳两项 aligned。
+
 ## 0.2.0 · 回显探针挪出 system：被它吃掉的缓存拿回来
 
 - **新增 `probe_echo_position`，默认 `"message"`**：回显标记追加到最后一条 user 消息尾部，不再拼到注入载荷（= `system`）末尾。

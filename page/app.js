@@ -8,7 +8,7 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.2.0"
+const VERSION = "0.2.1"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
@@ -194,7 +194,10 @@ function formToOptions() {
     if (f.kind === "bool") {
       next[f.key] = isOn($(f.el))
     } else if (f.kind === "seg") {
-      next[f.key] = document.querySelector('input[name="' + f.name + '"]:checked').value
+      // 旧页面 + 新 app.js 时会没有这组 radio（缓存或安装不完整）。
+      // 直接 .value 会抛 TypeError，save() 整个挂掉，界面永远停在“有未保存的改动”。
+      const el = document.querySelector('input[name="' + f.name + '"]:checked')
+      next[f.key] = el ? el.value : f.def
     } else if (f.kind === "text") {
       next[f.key] = $(f.el).value.trim()
     } else if (f.kind === "list") {
@@ -276,8 +279,8 @@ async function flushWrite() {
   qLast = Date.now()
   let err = null
   try {
-    const got = await withTimeout(magpie.options.set(next), 4000, "set 无回执")
-    if (got && typeof got === "object") loaded = got
+    const got = await writeOptions(next)
+    if (looksLikeOptions(got)) loaded = got
   } catch (e) { err = e }
   qBusy = false
   if (err && /once a second|一秒/.test(String(err && err.message || err))) {
@@ -358,10 +361,68 @@ function setBridge(state, text) {
 }
 
 /* ---------- 保存 ---------- */
+// 网关的 options.set 是整份替换，而且会对键做 schema 校验。
+// 插件刚升级、宿主还没重载时，宿主手里的是旧 schema：
+//   - 新键（如 probe_echo_position）会被判 unknown option，整份写入被拒；
+//   - 页面这边原本只 console.warn，用户看到的是“点了保存、配置没变”。
+// 所以这里在写入被拒时，按宿主上一次 get() 返回的键集合裁一遍再重试一次。
+function isUnknownOption(e) {
+  const m = String((e && e.message) || e || "")
+  return /unknown|unrecognized|not a valid|invalid option|schema|未知|未登记|不认识/i.test(m)
+}
+
+function onlyKnownKeys(opts) {  const known = loaded && typeof loaded === "object" ? Object.keys(loaded) : []
+  if (!known.length) return null
+  const out = {}
+  let dropped = 0
+  for (const k of Object.keys(opts)) {
+    if (known.indexOf(k) !== -1) out[k] = opts[k]
+    else dropped++
+  }
+  return dropped ? out : null
+}
+
+function looksLikeOptions(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return false
+  if (v.error || v.ok === false) return false
+  return SCHEMA.some((f) => Object.prototype.hasOwnProperty.call(v, f.key))
+}
+
+async function writeOptions(opts) {
+  const send = async (o) => {
+    const got = await withTimeout(magpie.options.set(o), 4000, "set 无回执")
+    // 宿主可能用 {ok:false,error} 而不是抛错来拒绝。这种回执一旦被当成配置读回去，
+    // 脏检测就会拿它跟表单比，界面永远停在“有未保存的改动”。
+    if (got && typeof got === "object" && (got.error || got.ok === false)) {
+      const e = new Error(String((got.error && (got.error.message || got.error)) || "set 被宿主拒绝"))
+      e.rejected = true
+      throw e
+    }
+    return got
+  }
+  try {
+    return await send(opts)
+  } catch (e) {
+    if (!isUnknownOption(e)) throw e
+    const trimmed = onlyKnownKeys(opts)
+    if (!trimmed) throw e
+    const got = await send(trimmed)
+    toast("宿主的选项 schema 还没登记新键，已按已知字段保存；重载插件后新键才生效", "warn", 6000)
+    return got
+  }
+}
+
 function save() {
   const btn = $("save")
   if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
-  const next = formToOptions()
+  let next
+  try {
+    next = formToOptions()
+  } catch (e) {
+    // 表单读不出来就别假装保存成功，把真实原因喷到界面上。
+    toast("读表单失败：" + ((e && e.message) || e), "warn", 6000)
+    return
+  }
   loaded = next
   writeLSopts(loaded)
   btn.classList.add("saved")
