@@ -37,6 +37,11 @@ export function normalize(raw) {
   o.probe_echo = o.probe_echo === true
   o.probe_refusal = o.probe_refusal === true
 
+  // 预填：空字符串 = 关。prefill_models 为空 = 全路由生效，
+  // 但会写进报文，所以默认值是空字符串而不是一个默认前缀。
+  o.prefill = str(o.prefill)
+  o.prefill_models = toList(o.prefill_models)
+
   o.models = toList(o.models)
   o.agents = toList(o.agents)
   o.agents_off = toList(o.agents_off)

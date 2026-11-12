@@ -57,4 +57,8 @@ export const DEFAULTS = {
   // 详见 src/probe.mjs 开头的实测记录：同一份载荷在不同路由上，服从与拒绝并存。
   probe_echo: false,     // 载荷末尾追加回显标记，约 +20 token，会改请求体
   probe_refusal: false,  // 只读回复前 200 字符判拒答，不改请求，零 token 成本
+  // 预填：把回复首行预先写成工件开头，模型只能往下续。
+  // 实测 hy4 71% → 93%，dp4.1f 反而 71% → 38%，所以默认关、必须按路由开。
+  prefill: "",
+  prefill_models: [],
 }

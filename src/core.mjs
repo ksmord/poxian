@@ -6,6 +6,7 @@ import { pick } from "./adapters/index.mjs"
 import { extractText } from "./text.mjs"
 import { filterMessages } from "./filter.mjs"
 import { makeNonce, withEcho } from "./probe.mjs"
+import { applyPrefill, prefillWanted } from "./prefill.mjs"
 
 // 过滤语义与原实现逐条对齐：
 //   agents_off 命中 → 跳过（先判，握手也绕不过去）
@@ -104,6 +105,21 @@ export function handle(body, ctx, payload, o) {
   return { action: r.action, meta: { ...(r.meta || {}), dry_run: true } }
 }
 
+// 写入与预填的收尾层。预填必须发生在 system 写完之后：
+//   顺序反了会先补一条 assistant，适配器的 systemIndex 仍然能找对位，
+//   但 chat 首条 system 插入后下标移位，assistant 会被顶到 system 前面去。
+// 只刷在实测有效的路由上（prefill_models），其余路由原封不动。
+function finishWrite(out, adapter, body, c, o, meta) {
+  if (!out) return { action: "skip-write", meta: { protocol: adapter.id } }
+  const model = String((body && body.model) || (c && c.model) || "")
+  const applied = prefillWanted(o, model) ? applyPrefill(out, adapter.id, o.prefill) : false
+  return {
+    body: out,
+    action: "inject",
+    meta: { protocol: adapter.id, ...meta, ...(applied ? { prefill: true } : {}) },
+  }
+}
+
 function run(body, ctx, payload, o) {
   const pre = precheck(body, ctx, o)
   if (pre) return pre
@@ -177,23 +193,19 @@ function run(body, ctx, payload, o) {
   // 在 replace 模式下无意义（整段覆盖）。
   if (o.override_mode === "replace" && hasOwn) {
     const out = adapter.replace(body, text, { cache: o.cache })
-    return out
-      ? {
-          body: out,
-          action: "inject",
-          meta: { protocol: adapter.id, position: "replace", written: text, ...tag },
-        }
-      : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
+    return finishWrite(out, adapter, body, c, o, {
+      position: "replace",
+      written: text,
+      ...tag,
+    })
   }
 
   const out = adapter.write(body, text, { position: o.position, cache: o.cache })
-  return out
-    ? {
-        body: out,
-        action: "inject",
-        meta: { protocol: adapter.id, position: o.position, written: text, ...tag },
-      }
-    : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
+  return finishWrite(out, adapter, body, c, o, {
+    position: o.position,
+    written: text,
+    ...tag,
+  })
 }
 
 // 报文清洗的接线层。开关都在 options 里归一过，这里只做组合：
