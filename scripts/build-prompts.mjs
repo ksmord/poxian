@@ -14,12 +14,12 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)))
 
 // 版本注册表：唯一真相。加版本 = 这里加一行 + 放一个 md。
 const VERSIONS_META = [
-  { id: "fujiang",  label: "富江人格破甲", badge: "默认", desc: "实测 66% 交付率，5725 B 轻量首选", file: "prompts/富江人格破甲.md" },
-  { id: "guomo",    label: "国模破甲",    badge: "",     desc: "实测 45%，覆盖 5 条路由最广",       file: "prompts/国模破甲.md" },
-  { id: "yesha",    label: "夜煞",        badge: "",     desc: "实测 36%，体积最小 4784 B",         file: "prompts/yesha.md" },
-  { id: "npc",      label: "npc 破甲",    badge: "",     desc: "实测 36%，52987 B 重载，prefill 成本高", file: "prompts/npc破甲提示词.md" },
-  { id: "pojia",    label: "破甲 prompt", badge: "",     desc: "实测 27%，仅在 dp4.1f / hy4 有效",  file: "prompts/破甲_prompt.md" },
-  { id: "v3",       label: "寒霜 v3",     badge: "",     desc: "实测 9%，目标→计划→实现 结构会稀释正文", file: "prompts/寒霜v3.md" },
+  { id: "fujiang",  label: "富江人格破甲", badge: "默认", desc: "实测 71%(hy4) / 57%(dp4.1f)，5725 B 轻量首选", file: "prompts/富江人格破甲.md" },
+  { id: "dagou",    label: "大狗",        badge: "",     desc: "实测 74%(hy4) / 57%(dp4.1f)，握手 16/16 逐字命中", file: "prompts/大狗.md" },
+  { id: "yesha",    label: "夜煞",        badge: "",     desc: "实测 71%(hy4)，dp4.1f 仅 14%，只在 hy4 用",   file: "prompts/yesha.md" },
+  { id: "guomo",    label: "国模破甲",    badge: "",     desc: "实测 60%(hy4) / 29%(dp4.1f)，覆盖类别最广",    file: "prompts/国模破甲.md" },
+  { id: "pojia",    label: "破甲 prompt", badge: "",     desc: "实测 60%(hy4) / 43%(dp4.1f)",                 file: "prompts/破甲_prompt.md" },
+  { id: "v3",       label: "寒霜 v3",     badge: "",     desc: "实测 14%(hy4) / 0%(dp4.1f)，建议弃用",        file: "prompts/寒霜v3.md" },
 ] 
 
 const DEFAULT_ID = "fujiang"
