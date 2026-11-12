@@ -63,3 +63,84 @@ export function prefillWanted(o, model) {
   if (!m) return false
   return list.some((p) => m === p || m.indexOf(p) === 0)
 }
+
+/* ────────── 按模型自动判断 ──────────
+ *
+ * prefill_models 是手写白名单，改一次要重启网关。这里补一层运行时判断：
+ *   先验（实机实测的固有权重）+ 该路由的滑动统计，两个相加决定开不开。
+ *
+ * 先验来自 bench/REPORT.md，不是猜的：
+ *   hy4      71% → 93%（13/14）   → +2
+ *   dp4.1f   71% → 38%            → −2（围栏被当成"用户已开始"，自己在围栏里拒绝）
+ *   k3/k3.1  两份载荷 0%，本来就到不了 → −2
+ *   glm*     36%，预填无增益        → −0.5
+ *
+ * 统计是进程内 EWMA（decay 0.75）。core.mjs 约定不碰 fs，所以不落盘：
+ * 网关重启就从先验重新开始，代价只是前几条请求少一点证据。
+ */
+
+const PRIOR = [
+  { re: /^group\/hy4\b/, score: 2, why: "hy4: 实测 71%→93%" },
+  { re: /^group\/dp4\.1f\b/, score: -2, why: "dp4.1f: 实测 71%→38%" },
+  { re: /^group\/k3(\b|\.)/, score: -2, why: "k3 系: 实测 0%" },
+  { re: /^group\/glm/, score: -0.5, why: "glm: 预填无增益" },
+]
+
+const STATS = new Map()
+const DECAY = 0.75
+const MIN_EVIDENCE = 4
+
+function priorOf(model) {
+  for (const p of PRIOR) if (p.re.test(model)) return p
+  return { score: 0, why: "未登记路由，等证据" }
+}
+
+export function notePrefillResult(model, { ok, refused }) {
+  const m = String(model || "")
+  if (!m) return
+  const s = STATS.get(m) || { ok: 0, ref: 0, n: 0, w: 0 }
+  s.ok = s.ok * DECAY + (ok ? 1 : 0)
+  s.ref = s.ref * DECAY + (refused ? 1 : 0)
+  // w 是衰减权重和：EWMA 下 ok/ref 会随次数缩水，必须除回权重才是 [-1,1] 的率。
+  s.w = s.w * DECAY + 1
+  s.n += 1
+  STATS.set(m, s)
+}
+
+export function resetPrefillStats() {
+  STATS.clear()
+}
+
+export function prefillStats(model) {
+  return STATS.get(String(model || "")) || { ok: 0, ref: 0, n: 0, w: 0 }
+}
+
+// 返回 {on, why}。显式白名单永远优先于自动判断。
+export function decidePrefill(o, model) {
+  if (!o || !o.prefill) return { on: false, why: "prefill 未配置" }
+  const m = String(model || "")
+  const list = Array.isArray(o.prefill_models) ? o.prefill_models : []
+
+  if (list.length) {
+    const hit = list.some((p) => m === p || (m && m.indexOf(p) === 0))
+    return { on: hit, why: hit ? "白名单命中" : "白名单未命中" }
+  }
+
+  if (!o.prefill_auto) return { on: false, why: "prefill_auto 关闭" }
+  if (!m) return { on: false, why: "取不到模型名" }
+
+  const p = priorOf(m)
+  const s = prefillStats(m)
+  let score = p.score
+  let why = p.why
+
+  if (s.n >= MIN_EVIDENCE) {
+    const rate = (s.ok - s.ref) / Math.max(s.w, 1e-9)
+    score += 2 * rate
+    why += `；统计 n=${s.n} 净率 ${rate.toFixed(2)}`
+  } else if (p.score === 0) {
+    return { on: false, why: "未登记路由且证据不足（n<4）" }
+  }
+
+  return { on: score > 0.5, why: `${why}；score=${score.toFixed(2)}` }
+}

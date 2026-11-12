@@ -6,7 +6,7 @@ import { pick } from "./adapters/index.mjs"
 import { extractText } from "./text.mjs"
 import { filterMessages } from "./filter.mjs"
 import { makeNonce, withEcho } from "./probe.mjs"
-import { applyPrefill, prefillWanted } from "./prefill.mjs"
+import { applyPrefill, decidePrefill } from "./prefill.mjs"
 
 // 过滤语义与原实现逐条对齐：
 //   agents_off 命中 → 跳过（先判，握手也绕不过去）
@@ -112,11 +112,16 @@ export function handle(body, ctx, payload, o) {
 function finishWrite(out, adapter, body, c, o, meta) {
   if (!out) return { action: "skip-write", meta: { protocol: adapter.id } }
   const model = String((body && body.model) || (c && c.model) || "")
-  const applied = prefillWanted(o, model) ? applyPrefill(out, adapter.id, o.prefill) : false
+  const d = decidePrefill(o, model)
+  const applied = d.on ? applyPrefill(out, adapter.id, o.prefill) : false
   return {
     body: out,
     action: "inject",
-    meta: { protocol: adapter.id, ...meta, ...(applied ? { prefill: true } : {}) },
+    meta: {
+      protocol: adapter.id,
+      ...meta,
+      ...(applied ? { prefill: true, prefill_why: d.why } : {}),
+    },
   }
 }
 

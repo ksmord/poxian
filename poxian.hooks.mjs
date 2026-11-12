@@ -12,6 +12,7 @@ import { resolvePrompt, handshakeText } from "./src/payload.mjs"
 import { precheck, handle } from "./src/core.mjs"
 import { record } from "./src/observe.mjs"
 import { judge } from "./src/probe.mjs"
+import { notePrefillResult } from "./src/prefill.mjs"
 import { createHash } from "node:crypto"
 
 export async function onRequest(body, ctx) {
@@ -72,7 +73,7 @@ export async function onResponse(reply, ctx) {
   const o = normalize(c.options)
 
   if (!o.enabled) return
-  if (!o.probe_echo && !o.probe_refusal) return
+  if (!o.probe_echo && !o.probe_refusal && !o.prefill) return
 
   const nonce = c.state && typeof c.state === "object" ? c.state.probeNonce : null
   if (o.probe_echo && !nonce) return // 上一轮没注入或没生成标记，无从判定
@@ -82,8 +83,17 @@ export async function onResponse(reply, ctx) {
       reply,
       nonce,
       wantEcho: o.probe_echo,
-      wantRefusal: o.probe_refusal,
+      wantRefusal: o.probe_refusal || !!o.prefill,
     })
+    // 预填的自动开关靠这条回路养：交付 → 加分，拒答 → 减分。
+    // 无论探针开没开都要喂，否则自适应永远是先验值。
+    if (o.prefill) {
+      const model = c.model || (reply && reply.model) || ""
+      notePrefillResult(model, {
+        ok: verdict.refusal === false && verdict.probe_hit !== false,
+        refused: verdict.refusal === true,
+      })
+    }
     record(o, c, {
       action: "probe",
       src: null,

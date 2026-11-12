@@ -41,6 +41,7 @@ export function normalize(raw) {
   // 但会写进报文，所以默认值是空字符串而不是一个默认前缀。
   o.prefill = str(o.prefill)
   o.prefill_models = toList(o.prefill_models)
+  o.prefill_auto = o.prefill_auto !== false
 
   o.models = toList(o.models)
   o.agents = toList(o.agents)

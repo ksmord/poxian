@@ -61,4 +61,6 @@ export const DEFAULTS = {
   // 实测 hy4 71% → 93%，dp4.1f 反而 71% → 38%，所以默认关、必须按路由开。
   prefill: "",
   prefill_models: [],
+  // 没写白名单时，按「先验 + 该路由滑动统计」自动判断开不开。
+  prefill_auto: true,
 }
