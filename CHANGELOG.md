@@ -1,5 +1,14 @@
 # 更新说明
 
+## 0.2.2 · 版本信号四处对齐，`npm run check` 真正全绿
+
+- **`registry-entry.json` 的 `version` 跟 `package.json` 同步**：市场详情页读的是这份元数据，它漂一个版本，你看到的就是旧号（这次它停在 0.2.0，而仓库早已 0.2.1，正是这个错位）。
+- **README 顶部加动态版本徽章**：直接查 `package.json` 的 `version`，任何人点进来第一眼就是真值。
+- **`check-page.mjs` 新增守卫**：`registry-entry ↔ package.json` 版本漂移直接判红，别再让它悄悄落后。
+- **页面补齐 `prefill` / `prefill_models` / `prefill_auto`**：0.1.8 起中间件就读这三个键，页面一直没有对应控件，`npm run check` 从那时起一直挂在 `missing in page`。
+- 现在 `npm run check` 输出 `OK: schema/middleware/html aligned, dirty-check 19/19 correct`，三条版本守卫全 aligned。
+- 运行时行为不变：仍是 0.2.1 的「回显 nonce 挪出 system」+「旧 schema 写入重试」。
+
 ## 0.2.1 · 保存不再被旧 schema 卡死
 
 - **现象**：升级到 0.2.0 后点「保存配置」没反应，右下角一直挂着「有未保存的改动」。

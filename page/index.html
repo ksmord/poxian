@@ -378,6 +378,21 @@
         <div class="ctl"><button class="switch" id="sd" role="switch" aria-checked="false" aria-label="strip_deny_assistant"></button></div>
       </div>
       <div class="row">
+        <div><div class="lab">预填首行<code>prefill</code></div>
+             <div class="desc">可选。请求末尾追加一条 assistant，内容就是工件首行（围栏、<code>1. </code>、标题），把「要不要答」挪成「这段怎么接」。留空 = 关</div></div>
+        <div class="ctl"><input type="text" id="pf" placeholder="如 ``` 或 1. " spellcheck="false"></div>
+      </div>
+      <div class="row stack">
+        <div><div class="lab">预填路由<code>prefill_models</code></div>
+             <div class="desc">留空 = 交给自动判断。前缀匹配，逗号分隔，如 <code>group/hy4</code></div></div>
+        <div class="ctl"><input type="text" id="pfm" placeholder="group/hy4, group/dp4.1f" spellcheck="false"></div>
+      </div>
+      <div class="row">
+        <div><div class="lab">自动预填<code>prefill_auto</code></div>
+             <div class="desc">没写白名单时，按「先验 + 该路由滑动统计」决定开不开；写了 <code>prefill_models</code> 就以白名单为准</div></div>
+        <div class="ctl"><button class="switch" id="pfa" role="switch" aria-checked="true" aria-label="prefill_auto"></button></div>
+      </div>
+      <div class="row">
         <div><div class="lab">回显探针<code>probe_echo</code></div>
              <div class="desc">载荷末尾追加一枚随机标记，要求模型回复首行原样吐出。回显到 = 注入真的拿到了控制权，而不只是字节写进去了。约 +20 token，会改请求体，故默认关</div></div>
         <div class="ctl"><button class="switch" id="pe" role="switch" aria-checked="false" aria-label="probe_echo"></button></div>
@@ -430,8 +445,8 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="versions.js?v=0.2.1"></script>
-  <script src="agents.js?v=0.2.1"></script>
-  <script src="app.js?v=0.2.1"></script>
+  <script src="versions.js?v=0.2.2"></script>
+  <script src="agents.js?v=0.2.2"></script>
+  <script src="app.js?v=0.2.2"></script>
 </body>
 </html>

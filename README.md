@@ -1,5 +1,7 @@
 # poxian
 
+![version](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/ksmord/poxian/main/package.json&query=$.version&label=version&color=blue)
+
 **上游：[YaoGuaiLi/hangong](https://github.com/YaoGuaiLi/hangong)（MIT）· 本仓库为 fork 重构版**
 
 一个 [magpie](https://usemagpie.ai) 网关中间件：把完整的工作台系统提示词写进**每一个经过网关的请求**——一个注入点，覆盖所有 Agent，客户端零改动。

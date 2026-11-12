@@ -121,6 +121,21 @@ console.log(
 )
 if (badStamp) process.exit(1)
 
+// 注册元数据守卫：registry-entry.json 的 version 必须跟 package.json 同步。
+// 市场详情页读的是这份元数据，漂一个版本，用户看到的就是旧号。
+let regBad = false
+try {
+  const reg = JSON.parse(readFileSync(new URL("../registry-entry.json", import.meta.url), "utf8"))
+  regBad = reg.version !== pkg.version
+  console.log(
+    "registry-entry ↔ package.json:",
+    regBad ? `DRIFT (registry=${reg.version}, pkg=${pkg.version})` : "aligned",
+  )
+} catch {
+  console.log("registry-entry ↔ package.json: absent (skip)")
+}
+if (regBad) process.exit(1)
+
 if (missing.length || extra.length || missEl.length || bad || onlyCode.length || onlyManifest.length) {
   console.log("\nFAILED")
   process.exit(1)
