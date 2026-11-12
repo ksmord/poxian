@@ -1,0 +1,12 @@
+{
+  "package": "poxian",
+  "name": "poxian · 网关提示词中间件",
+  "version": "0.2.0",
+  "icon": "https://raw.githubusercontent.com/ksmord/poxian/main/assets/icon.svg",
+  "community": true,
+  "kind": "middleware",
+  "summary": {
+    "en": "Magpie gateway middleware: writes a full workbench system prompt into every request at that protocol's own system slot, with idempotent marks, payload cleaning, echo/refusal probes and per-route prefill. 0.2.0 moves the echo nonce out of system so upstream prefix caching stays intact.",
+    "zh": "Magpie 网关提示词中间件：把完整工作台系统提示词写进每个经过网关的请求，落在各协议自己的 system 位，带幂等标记、报文清洗、回显/拒答探针与按路由预填。0.2.0 把回显 nonce 移出 system，上游前缀缓存不再被切断。"
+  }
+}
