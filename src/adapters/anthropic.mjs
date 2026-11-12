@@ -53,6 +53,22 @@ export default {
     return undefined
   },
 
+  // 探针回显的落点：最后一条 user 消息尾部。放 system 会切断前缀缓存
+  // （nonce 每请求都变，断点之后的历史全部按新 token 计费）。
+  tail(body, text) {
+    if (!Array.isArray(body.messages)) return undefined
+    for (let i = body.messages.length - 1; i >= 0; i--) {
+      const m = body.messages[i]
+      if (!m || m.role !== "user") continue
+      if (typeof m.content === "string") m.content = m.content + "\n" + text
+      else if (Array.isArray(m.content)) m.content.push({ type: "text", text })
+      else m.content = text
+      return body
+    }
+    body.messages.push({ role: "user", content: [{ type: "text", text }] })
+    return body
+  },
+
   // 整段替换。cache 打开时仍要挂断点并返回 block 数组——否则默认模式
   // （override_mode=replace）下 cache 会静默失效，表现为「开了缓存不生效」。
   // skipSystem=true：旧的 body.system 即将被丢弃，不参与额度计算。

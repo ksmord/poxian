@@ -35,6 +35,10 @@ export function normalize(raw) {
 
   // 探针：两个独立开关，默认都关（echo 会改请求体，不该默默生效）
   o.probe_echo = o.probe_echo === true
+  // 回显落点：只有显式写 payload 才回退旧行为（进 system 尾巴）。
+  // 旧行为每请求在 system 里换一个 nonce，上游前缀缓存从 nonce 处断链，
+  // 实测把 workbuddy 的 79.4% 打到 1.3%——所以默认值必须是 message。
+  o.probe_echo_position = o.probe_echo_position === "payload" ? "payload" : "message"
   o.probe_refusal = o.probe_refusal === true
 
   // 预填：空字符串 = 关。prefill_models 为空 = 全路由生效，

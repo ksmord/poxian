@@ -5,7 +5,7 @@ import { MARK, ACTIVATION } from "./constants.mjs"
 import { pick } from "./adapters/index.mjs"
 import { extractText } from "./text.mjs"
 import { filterMessages } from "./filter.mjs"
-import { makeNonce, withEcho } from "./probe.mjs"
+import { makeNonce, withEcho, echoInstruction } from "./probe.mjs"
 import { applyPrefill, decidePrefill } from "./prefill.mjs"
 
 // 过滤语义与原实现逐条对齐：
@@ -109,11 +109,14 @@ export function handle(body, ctx, payload, o) {
 //   顺序反了会先补一条 assistant，适配器的 systemIndex 仍然能找对位，
 //   但 chat 首条 system 插入后下标移位，assistant 会被顶到 system 前面去。
 // 只刷在实测有效的路由上（prefill_models），其余路由原封不动。
-function finishWrite(out, adapter, body, c, o, meta) {
+function finishWrite(out, adapter, body, c, o, meta, tail) {
   if (!out) return { action: "skip-write", meta: { protocol: adapter.id } }
   const model = String((body && body.model) || (c && c.model) || "")
   const d = decidePrefill(o, model)
   const applied = d.on ? applyPrefill(out, adapter.id, o.prefill) : false
+  // 回显落点在最后：system 写完之后再动 messages，否则 replace 模式
+  // 会把刚写进去的 nonce 连同旧 system 一起覆盖掉。
+  if (tail && typeof adapter.tail === "function") adapter.tail(out, tail)
   return {
     body: out,
     action: "inject",
@@ -159,17 +162,7 @@ function run(body, ctx, payload, o) {
 
   const existing = adapter.read(body)
 
-  // 探针回显：把标记追加到即将写入的载荷正文末尾。
-  // nonce 存进 ctx.state —— magpie 的 host 在同一请求的 onRequest 与
-  // onResponse 之间复用同一个 ctx 对象（run.plugins.push({h, ctx})），
-  // 所以这里写、响应钩子读，是唯一能跨两次调用传递的通道。
-  // 同步中间件壳没有 ctx.state，守卫一下，不影响旧路径。
   let text = payload.text
-  if (o.probe_echo) {
-    const nonce = makeNonce()
-    text = withEcho(text, nonce)
-    if (c.state && typeof c.state === "object") c.state.probeNonce = nonce
-  }
 
   if (o.handshake && isActivation(body, adapter.id)) {
     if (o.handshake_model) body.model = o.handshake_model
@@ -181,6 +174,20 @@ function run(body, ctx, payload, o) {
           meta: { protocol: adapter.id, model: o.handshake_model || undefined, written: payload.handshake, ...tag },
         }
       : { action: "skip-write", meta: { protocol: adapter.id, ...tag } }
+  }
+
+  // 探针回显。默认落点是最后一条 user 消息的尾部，不是注入载荷（system）末尾。
+  // 旧落点每请求在 system 里换一个 nonce，而上游的前缀缓存是逐 token 比对的：
+  // nonce 之前的 1KB 能命中，nonce 之后（= 整段历史）全部按新 token 计费。
+  // 实机代价：workbuddy 79.4% → 1.3%，1206 次里 1066 次 cache_read 恰好 = 1024。
+  // nonce 仍存 ctx.state —— host 在同一请求的 onRequest/onResponse 间复用同一个 ctx，
+  // 这是唯一能跨两次调用传递的通道；同步中间件壳没有 state，守卫一下。
+  let echoTail = null
+  if (o.probe_echo) {
+    const nonce = makeNonce()
+    if (o.probe_echo_position === "payload") text = withEcho(text, nonce)
+    else echoTail = echoInstruction(nonce)
+    if (c.state && typeof c.state === "object") c.state.probeNonce = nonce
   }
 
   const hasOwn = typeof existing === "string" && existing.trim() !== ""
@@ -202,7 +209,7 @@ function run(body, ctx, payload, o) {
       position: "replace",
       written: text,
       ...tag,
-    })
+    }, echoTail)
   }
 
   const out = adapter.write(body, text, { position: o.position, cache: o.cache })
@@ -210,7 +217,7 @@ function run(body, ctx, payload, o) {
     position: o.position,
     written: text,
     ...tag,
-  })
+  }, echoTail)
 }
 
 // 报文清洗的接线层。开关都在 options 里归一过，这里只做组合：

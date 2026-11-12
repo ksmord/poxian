@@ -1,5 +1,16 @@
 # 更新说明
 
+## 0.2.0 · 回显探针挪出 system：被它吃掉的缓存拿回来
+
+- **新增 `probe_echo_position`，默认 `"message"`**：回显标记追加到最后一条 user 消息尾部，不再拼到注入载荷（= `system`）末尾。
+- **为什么必须挪**：`system` 是缓存前缀的头。每请求换一枚 nonce，上游逐 token 比对，nonce 之前那 ~1KB 命中、nonce 之后（= 整段对话历史）全部重新 prefill。
+- **实机代价**：workbuddy 路由 30 天 79.4%，11-12 当天 1.3%；1206 次调用里 **1066 次 `cache_read` 恰好 = 1024**，平均每次输入 101k token 只认到 1k 缓存。
+- **不是猜测**：12,457 token 的完全相同请求连发 3 次，`cached` 恒定 1152；只改最后两个字也是 1152 —— 断点在 1KB 处，不在调用方内容里。
+- **探针语义不变**：nonce 仍在本请求报文里，`onResponse` 照样能判「回显到没到」。
+- **四种协议都补了尾部落点**：`chat` / `anthropic` / `responses` / `gemini`；没有 user 消息时补一条，不丢探针。
+- **`payload` 保留为回退值**：写 `probe_echo_position: "payload"` 即恢复 0.1.x 行为。
+- 页面加了「消息尾 / 载荷尾」分段开关；测试 105 → **120**（`test/probe-cache-safe.test.mjs` 15 条，钉死「两次请求的 system 字节完全相同」）。
+
 ## 0.1.9 · 预填不再手写白名单，改成按模型自己判断
 
 - **新增 `prefill_auto`（默认开）**：没写 `prefill_models` 时，用「先验 + 该路由滑动统计」决定开不开预填，不用再手工维护白名单、也不用重启网关。

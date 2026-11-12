@@ -26,15 +26,16 @@ test("probe_echo 关：请求体里没有 PX 标记，ctx.state 不写 nonce", (
 })
 
 test("probe_echo 开：标记进请求体，nonce 落到 ctx.state", () => {
-  const body = { model: "m", messages: [{ role: "user", content: "hi" }] }
+  const body = { model: "m", messages: [{ role: "system", content: "OWN" }, { role: "user", content: "hi" }] }
   const ctx = { protocol: "chat", state: {} }
   run(body, ctx, { probe_echo: true })
   const sys = body.messages[0].content
+  const last = body.messages[body.messages.length - 1]
   assert.match(ctx.state.probeNonce, /^[A-HJ-NP-Z2-9]{6}$/)
-  assert.ok(sys.includes("[PX-" + ctx.state.probeNonce + "]"))
-  // 原载荷必须完整保留在前面，探针只是追加
-  assert.ok(sys.startsWith(MARK))
-  assert.ok(sys.includes("PROMPT-BODY"))
+  // 默认落点：最后一条 user 消息，不碰 system
+  assert.ok(String(last.content).includes("[PX-" + ctx.state.probeNonce + "]"))
+  assert.equal(String(sys).includes("[PX-"), false)
+  assert.ok(String(sys).includes("PROMPT-BODY"))
 })
 
 test("probe_echo 开：每次请求 nonce 不同（防止上游缓存/复读冒充命中）", () => {
@@ -49,12 +50,14 @@ test("probe_echo 开：每次请求 nonce 不同（防止上游缓存/复读冒�
 })
 
 test("probe_echo 开：replace 模式同样带上探针", () => {
-  const body = { system: "OWN-SYSTEM", messages: [] }
+  const body = { system: "OWN-SYSTEM", messages: [{ role: "user", content: "hi" }] }
   const ctx = { protocol: "anthropic", state: {} }
   const r = run(body, ctx, { probe_echo: true, override_mode: "replace" })
   assert.equal(r.action, "inject")
-  assert.ok(String(body.system).includes("[PX-" + ctx.state.probeNonce + "]"))
+  assert.equal(String(body.system).includes("[PX-"), false)
   assert.equal(String(body.system).includes("OWN-SYSTEM"), false)
+  const last = body.messages[body.messages.length - 1]
+  assert.ok(JSON.stringify(last.content).includes("[PX-" + ctx.state.probeNonce + "]"))
 })
 
 test("probe_echo 开：ctx 没有 state 时不炸（同步中间件壳的旧路径）", () => {

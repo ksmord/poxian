@@ -8,7 +8,7 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.1.9"
+const VERSION = "0.2.0"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
@@ -46,6 +46,7 @@ const SCHEMA = [
   { key: "strip_safety_system",  kind: "bool", el: "sf", def: true },
   { key: "strip_deny_assistant", kind: "bool", el: "sd", def: false },
   { key: "probe_echo",    kind: "bool", el: "pe", def: false },
+  { key: "probe_echo_position", kind: "seg", el: "peposSeg", name: "pepos", def: "message", opts: ["message", "payload"] },
   { key: "probe_refusal", kind: "bool", el: "pr", def: false },
 ]
 

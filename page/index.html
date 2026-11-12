@@ -383,6 +383,14 @@
         <div class="ctl"><button class="switch" id="pe" role="switch" aria-checked="false" aria-label="probe_echo"></button></div>
       </div>
       <div class="row">
+        <div><div class="lab">回显落点<code>probe_echo_position</code></div>
+             <div class="desc">message = 追加到最后一条 user 消息尾部（默认）。system 前缀保持字节不变，上游前缀缓存能整段命中。payload = 旧行为，追加到注入载荷末尾、跟着进 system；每请求换一枚 nonce，会把缓存从 ~1KB 处切断，实测命中率 79.4% → 1.3%</div></div>
+        <div class="seg" id="peposSeg">
+          <label><input type="radio" name="pepos" value="message" checked><span>消息尾</span></label>
+          <label><input type="radio" name="pepos" value="payload"><span>载荷尾</span></label>
+        </div>
+      </div>
+      <div class="row">
         <div><div class="lab">拒答探针<code>probe_refusal</code></div>
              <div class="desc">只读回复前 200 字符判是否拒答，不改请求、不耗 token。单用只能知道「这次拒了」，配上回显探针才能区分「没送到」与「送到了不认」</div></div>
         <div class="ctl"><button class="switch" id="pr" role="switch" aria-checked="false" aria-label="probe_refusal"></button></div>
@@ -422,8 +430,8 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="versions.js?v=0.1.9"></script>
-  <script src="agents.js?v=0.1.9"></script>
-  <script src="app.js?v=0.1.9"></script>
+  <script src="versions.js?v=0.2.0"></script>
+  <script src="agents.js?v=0.2.0"></script>
+  <script src="app.js?v=0.2.0"></script>
 </body>
 </html>

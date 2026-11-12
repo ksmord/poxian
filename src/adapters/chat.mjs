@@ -43,6 +43,23 @@ export default {
     return body
   },
 
+  // 探针回显的落点：最后一条 user 消息的尾部，不是 system。
+  // system 是缓存前缀的头，往那里塞每请求都变的 nonce，上游前缀缓存在 nonce 处断链，
+  // 后面整段历史每轮都得重新 prefill（实测 79.4% → 1.3%，cache_read 恒等于 1024）。
+  tail(body, text) {
+    if (!Array.isArray(body.messages)) return undefined
+    for (let i = body.messages.length - 1; i >= 0; i--) {
+      const m = body.messages[i]
+      if (!m || m.role !== "user") continue
+      if (typeof m.content === "string") m.content = m.content + "\n" + text
+      else if (Array.isArray(m.content)) m.content.push({ type: "text", text })
+      else m.content = text
+      return body
+    }
+    body.messages.push({ role: "user", content: text })
+    return body
+  },
+
   replace(body, text) {
     if (!Array.isArray(body.messages)) return undefined
     const i = systemIndex(body.messages)
