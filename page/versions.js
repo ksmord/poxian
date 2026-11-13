@@ -51,3 +51,6 @@ window.PX_VERSIONS = [
   }
 ]
 window.PX_DEFAULT_VERSION = "fujiang"
+// 由 scripts/build-prompts.mjs 生成，请勿手改。
+window.PX_EXPECT_PROTO = 3
+window.PX_SCHEMA_KEYS = ["enabled","override","override_mode","position","cache","handshake","handshake_model","models","agents","agents_off","prompt","prompt_path","on_prompt","strip_frontmatter","gatewayTimeoutMs","log","log_path","log_backup_count","skip_stream","dry_run","max_payload_bytes","prompt_allowlist","enable_message_filter","strip_safety_system","strip_deny_assistant","probe_echo","probe_echo_position","probe_refusal","prefill","prefill_models","prefill_auto"]

@@ -67,3 +67,7 @@ export const DEFAULTS = {
   // 没写白名单时，按「先验 + 该路由滑动统计」自动判断开不开。
   prefill_auto: true,
 }
+
+// 运行态协议号：与 page/versions.js 的 window.PX_EXPECT_PROTO 配对。
+// 页面刷新拿新 bundle、Bun plugin host 没重启时立刻判定错配，禁用写入。
+export const API_PROTO = 3

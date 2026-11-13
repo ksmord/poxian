@@ -105,3 +105,16 @@ function toList(v) {
   if (typeof v === "string" && v.trim()) return v.split(",").map((x) => x.trim()).filter(Boolean)
   return []
 }
+
+// 非破坏性写 + 陌生键告警。
+// options.set 是整份替换，另一版本写进来的键会被旧页面一保存抹掉且界面毫无提示。
+export const KNOWN_OPTION_KEYS = new Set(Object.keys(DEFAULTS))
+export function detectUnknownOptionKeys(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return []
+  return Object.keys(raw).filter((k) => !KNOWN_OPTION_KEYS.has(k))
+}
+export function mergeForWrite(base, patch) {
+  const out = { ...(base && typeof base === "object" && !Array.isArray(base) ? base : {}) }
+  for (const [k, v] of Object.entries(patch || {})) if (KNOWN_OPTION_KEYS.has(k)) out[k] = v
+  return out
+}

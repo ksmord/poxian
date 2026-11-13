@@ -8,7 +8,7 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.2.2"
+const VERSION = "0.2.3"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
@@ -416,6 +416,10 @@ async function writeOptions(opts) {
 }
 
 function save() {
+  if (window.PX_HEALTH && window.PX_HEALTH.staleFlag) {
+    toast("宿主进程未重启，请完全退出 magpie（含托盘）后重开", "warn")
+    return
+  }
   const btn = $("save")
   if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
   let next
@@ -514,9 +518,26 @@ async function main() {
   }
   $("reset").addEventListener("click", () => { optionsToForm(loaded); toast("已还原为当前生效配置") })
   $("save").addEventListener("click", save)
-  document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); if (!$("save").disabled) save() }
-  })
+  // 键盘生命周期与 IME 由真实组件接管（page/keys.js），页面与测试共用同一份。
+  // 修的是中文输入法候选词确认键（isComposing / keyCode 229）误触发保存。
+  if (window.PX_KEYS) window.PX_KEYS.installSaveHotkey(document, save, () => !$("save").disabled)
+
+  /* ---------- 运行态概要条 ----------
+     协议错配禁用保存并给出可执行提示；宿主未提供 status RPC 时明说「通道未接通」，
+     绝不假绿。错误原文与陌生键由同一条通道呈现。 */
+  ;(function mountHealth() {
+    const H = window.PX_HEALTH
+    if (!H) return
+    const els = { health: $("health"), unknown: $("unknown"), save: $("save") }
+    const render = (s) => { try { H.applyHealth(s, els) } catch { /* 概要条不影响主页面 */ } }
+    let s = null
+    try {
+      if (window.PX_STATUS) s = window.PX_STATUS
+      else if (window.magpie && typeof window.magpie.status === "function") s = window.magpie.status()
+    } catch { s = null }
+    if (s && typeof s.then === "function") s.then(render).catch(() => render(null))
+    else render(s)
+  })()
   const cp = async (id) => {
     try { await navigator.clipboard.writeText($(id).textContent); toast("命令已复制到剪贴板", "ok") }
     catch { toast("剪贴板被沙盒拒绝，请手动选择命令文本复制", "warn") }

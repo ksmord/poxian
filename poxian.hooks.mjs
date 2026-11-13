@@ -14,11 +14,16 @@ import { record } from "./src/observe.mjs"
 import { judge } from "./src/probe.mjs"
 import { notePrefillResult } from "./src/prefill.mjs"
 import { createHash } from "node:crypto"
+import { arm, attempt, injected as noteInjected, failed as noteFailed, status } from "./src/status.mjs"
+
+// 宿主把 status() 暴露给设置页；没有 RPC 时页面显示「通道未接通」而不是假绿。
+export { status }
 
 export async function onRequest(body, ctx) {
   const t0 = Date.now()
   const c = ctx || {}
   const o = normalize(c.options)
+  arm(o)
 
   if (!o.enabled) return undefined
 
@@ -36,12 +41,18 @@ export async function onRequest(body, ctx) {
     return undefined
   }
 
+  attempt()                                 // 新增：进入注入链路
   try {
     const payload = await withTimeout(resolvePrompt(o, c), o.gatewayTimeoutMs)
     payload.handshake = handshakeText()
 
     const r = handle(body, c, payload, o)
     const { written, ...meta } = r.meta || {}
+    // core.mjs 的 action 有 inject / handshake / skip-* / 各 verdict，
+    // 只有真正写出 system 的两次才算 injected，其余是正常放行。
+    if (r.action === "inject" || r.action === "handshake") {
+      noteInjected({ action: r.action, src: payload.source, sha256: sha256(payload.text) })
+    }
     record(o, c, {
       action: r.action,
       src: payload.source,
@@ -55,6 +66,7 @@ export async function onRequest(body, ctx) {
     })
     return r.body
   } catch (e) {
+    noteFailed(e)                           // 新增：内核原文进运行态
     // 超时、权限、格式——任何异常都放行原请求，绝不挂住
     record(o, c, {
       action: "error",

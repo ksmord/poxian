@@ -8,9 +8,13 @@
 //   page/versions.js   —— 控制台页面的版本元数据（纯 script，挂 window）
 import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
+import { DEFAULTS } from "../src/constants.mjs"
 import { fileURLToPath } from "node:url"
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
+
+// 与 src/constants.mjs 的 API_PROTO 配对；改协议号只改这两处。
+const EXPECT_PROTO_META = 3
 
 // 版本注册表：唯一真相。加版本 = 这里加一行 + 放一个 md。
 const VERSIONS_META = [
@@ -85,7 +89,10 @@ writeFileSync(
   "// 由 scripts/build-prompts.mjs 生成，请勿手改。\n" +
     "// 版本元数据唯一来源是构建脚本里的 VERSIONS_META。\n" +
     "window.PX_VERSIONS = " + JSON.stringify(pv, null, 2) + "\n" +
-    "window.PX_DEFAULT_VERSION = " + JSON.stringify(DEFAULT_ID) + "\n",
+    "window.PX_DEFAULT_VERSION = " + JSON.stringify(DEFAULT_ID) + "\n" +
+    "// 由 scripts/build-prompts.mjs 生成，请勿手改。\n" +
+    "window.PX_EXPECT_PROTO = " + JSON.stringify(EXPECT_PROTO_META) + "\n" +
+    "window.PX_SCHEMA_KEYS = " + JSON.stringify(Object.keys(DEFAULTS)) + "\n",
 )
 
 /* ---------- 版本戳：唯一来源是 package.json 的 version ---------- */

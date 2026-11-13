@@ -1,3 +1,26 @@
+## 0.2.3 · 运行态可见、协议协商、非破坏性写
+
+借鉴 fujiang-pojia-main 的工程做法，只搬工程层，不搬它的 knowledge / skills / campaigns / automation / findings 内置系统。
+
+- **运行态**：新增 `src/status.mjs`，`armed / attempted / injected / skipped / lastError / proto` 六态；`onRequest` 成功写出 system 才计 `injected`，`catch` 把内核错误原文送进 `lastError`；`export { status }` 供宿主暴露。
+- **协议协商**：`src/constants.mjs` 的 `API_PROTO=3` 与 `page/versions.js` 的 `window.PX_EXPECT_PROTO` 配对，由 `scripts/build-prompts.mjs` 统一生成；页面刷新拿新 bundle、Bun plugin host 没重启时禁用保存并提示完全退出后重开。
+- **非破坏性写**：`src/options.mjs` 加 `KNOWN_OPTION_KEYS` / `detectUnknownOptionKeys` / `mergeForWrite`，`window.PX_SCHEMA_KEYS` 同步下发；保存时回读作底、只覆盖认识的键，另一版本写进来的键原样保留并在概要条计数显示。
+- **键盘/IME**：抽出 `page/keys.js` 真实组件，页面与 `test/ui-harness.mjs` 共用；修 `Ctrl+S` 在中文输入法候选词确认键（isComposing / keyCode 229）误触发；隐藏时注销监听。
+- **变量守卫**：新增 `scripts/check-vars.mjs`，扫描 `prompts/*.md` 的未知变量与未闭合 `{{`，已知名从 `src/constants.mjs` 动态取；串进 `npm run check`。
+- **测试**：`test/ui-harness.mjs` 用 `readFileSync + new Function` 提取真实页面组件，在最小假 DOM 上跑生命周期，覆盖键盘、协议错配、错误原文、陌生键、运行态计数与无 RPC 三态。
+
+### 验证结果
+
+`node --test test/` 134/134 通过；`npm run check` 静态守卫全绿（schema/middleware/html 对齐，脏检测 19/19）；`npm run check:vars` 全绿；`npm run check:page-order` 验页面脚本真实装载顺序与无 RPC 三态全绿；`npm run build` 后 `page/versions.js` 仍带 `PX_EXPECT_PROTO` / `PX_SCHEMA_KEYS`；`check:runtime` 实发网关请求验 `armed=true / attempted=1 / injected=1 / lastError=null`；受控故障注入验 `lastError` 保留原文且请求原样放行，恢复后全套复跑仍全绿；从 507 文件备份回滚演练 `120/120` 通过。
+
+### 验证范围
+
+运行态与协议协商在单进程内模拟；页面组件用最小假 DOM 提取真实源码执行；故障注入为临时替换 `resolvePrompt` 抛错后恢复。上述结果不代表所有宿主环境、全部协议适配器及全部提示词版本均已验证。性能沿用 0.2.2 的 60 轮固定对话基线（插件关闭 1.94 s / 轻量 2.05 s / 完整 2.36 s），未重新计时。
+
+### 升级方法
+
+完全退出 magpie（包括托盘进程），用新版文件覆盖 poxian 目录后运行 `npm run build && npm run check && npm test`，再启动宿主。若概要条显示「宿主未重启」，按提示完全退出后重开；若显示「运行态通道未接通」，属宿主未提供 status RPC，配置读写不受影响，详细错误见 `~/.config/magpie/logs/poxian.jsonl`。回滚用升级前的整目录备份。
+
 # 更新说明
 
 ## 0.2.2 · 版本信号四处对齐，`npm run check` 真正全绿
