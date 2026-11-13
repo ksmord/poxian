@@ -1,3 +1,19 @@
+## 0.2.4 · 富江精简进列表
+
+`prompts/富江精简.md` 在 0.2.3 里只落了文件，`scripts/build-prompts.mjs` 的 `VERSIONS_META` 没加行。构建按注册表遍历，于是这个版本从未进过产物：`poxian-prompt.js` 的 `VERSIONS` 没有它，`page/versions.js` 的 `window.PX_VERSIONS` 也没有它，页面下拉列表读的是后者，所以文件在仓库里、插件里却看不见。
+
+- **注册表补齐**：`VERSIONS_META` 增加 `fujiang-lite`（`prompts/富江精简.md`，2530 B / 12 行 / ~836 tok），排在 `fujiang` 之后。
+- **产物重建**：`poxian-prompt.js` 与 `page/versions.js` 现为 7 个版本，`default` 仍是 `fujiang`。
+- **版本号抬到 0.2.4**：插件市场按 `package.json` 的 `version` 判断是否需要重新拉取，号不动就跳过下载。`registry-entry.json`、`page/app.js` 的 `VERSION`、`index.html` 的 `?v=` 五处缓存戳一并同步。
+
+### 验证结果
+
+`node --test test/` 134/134 通过；`npm run check` 全绿（schema/middleware/html 对齐，`defaults ↔ manifest`、`page stamp ↔ package.json`、`registry-entry ↔ package.json` 三处对齐，脏检测 19/19）；`npm run check:vars` 扫到 `prompts/富江精简.md` 且通过；`npm run check:page-order` 全绿；构建输出确认为 `7 entries` 且含 `fujiang-lite`。
+
+### 升级方法
+
+更新到 0.2.4，确认页面概要条版本显示 `0.2.4` 再打开下拉框；若仍显示旧号，是完全退出宿主（含托盘）后重开，或清一次页面缓存使 `?v=0.2.4` 生效。
+
 ## 0.2.3 · 运行态可见、协议协商、非破坏性写
 
 借鉴 fujiang-pojia-main 的工程做法，只搬工程层，不搬它的 knowledge / skills / campaigns / automation / findings 内置系统。
