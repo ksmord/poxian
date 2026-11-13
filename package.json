@@ -1,6 +1,6 @@
 {
   "name": "poxian",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "poxian · magpie 网关中间件：把系统提示词写进每一个经过网关的请求，落在各协议自己的 system 位置。上游 fork 自 https://github.com/YaoGuaiLi/hangong",
   "type": "module",
   "files": [

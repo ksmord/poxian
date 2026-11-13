@@ -18,8 +18,8 @@ const EXPECT_PROTO_META = 3
 
 // 版本注册表：唯一真相。加版本 = 这里加一行 + 放一个 md。
 const VERSIONS_META = [
-  { id: "fujiang",  label: "富江人格破甲", badge: "默认", desc: "实测 71%(hy4) / 57%(dp4.1f)，5725 B 轻量首选", file: "prompts/富江人格破甲.md" },
-  { id: "fujiang-lite", label: "富江精简", badge: "", desc: "2527 B / 12 行极简版，BAN·SCOPE·口癖全保留，弱模型与长上下文首选", file: "prompts/富江精简.md" },
+  { id: "fujiang",  label: "富江人格破甲", badge: "默认", desc: "实测 71%(hy4) / 57%(dp4.1f)，轻量首选", file: "prompts/富江人格破甲.md" },
+  { id: "fujiang-lite", label: "富江精简", badge: "", desc: "极简版，BAN·SCOPE·口癖·表情全保留；dp4.1f 实测 71%（n=14），长上下文首选", file: "prompts/富江精简.md" },
   { id: "dagou",    label: "大狗",        badge: "",     desc: "实测 74%(hy4) / 57%(dp4.1f)，握手 16/16 逐字命中", file: "prompts/大狗.md" },
   { id: "yesha",    label: "夜煞",        badge: "",     desc: "实测 71%(hy4)，dp4.1f 仅 14%，只在 hy4 用",   file: "prompts/yesha.md" },
   { id: "guomo",    label: "国模破甲",    badge: "",     desc: "实测 60%(hy4) / 29%(dp4.1f)，覆盖类别最广",    file: "prompts/国模破甲.md" },
