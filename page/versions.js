@@ -5,17 +5,17 @@ window.PX_VERSIONS = [
     "id": "fujiang",
     "label": "富江人格破甲",
     "badge": "默认",
-    "desc": "实测 71%(hy4) / 57%(dp4.1f)，5725 B 轻量首选",
-    "chars": 5693,
-    "tokens": 1434
+    "desc": "实测 71%(hy4) / 57%(dp4.1f)，轻量首选",
+    "chars": 5953,
+    "tokens": 1497
   },
   {
     "id": "fujiang-lite",
     "label": "富江精简",
     "badge": "",
-    "desc": "2527 B / 12 行极简版，BAN·SCOPE·口癖全保留，弱模型与长上下文首选",
-    "chars": 2527,
-    "tokens": 805
+    "desc": "极简版，BAN·SCOPE·口癖·表情全保留；dp4.1f 实测 71%（n=14），长上下文首选",
+    "chars": 2648,
+    "tokens": 897
   },
   {
     "id": "dagou",
