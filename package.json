@@ -1,7 +1,7 @@
 {
   "name": "poxian",
   "version": "0.2.5",
-  "description": "poxian · magpie 网关异步钩子中间件 + 控制台页面：把完整工作台系统提示词写进每一个经过网关的请求，落在各协议自己的 system 位置。上游 fork 自 https://github.com/YaoGuaiLi/hangong",
+  "description": "poxian · magpie 网关中间件：把系统提示词写进每一个经过网关的请求，落在各协议自己的 system 位置。上游 fork 自 https://github.com/YaoGuaiLi/hangong",
   "type": "module",
   "files": [
     "CHANGELOG.md",
@@ -24,25 +24,32 @@
     "poxian.hooks.mjs",
     "src/",
     "test/",
-    "poxian.middleware.js"
+    "poxian.middleware.js",
+    "docs/options.md",
+    "docs/design-notes.md",
+    "scripts/publish-release.mjs"
   ],
   "keywords": [
     "magpie",
     "magpie-plugin",
     "magpie-middleware",
     "system-prompt",
-    "opencode",
-    "opencode-plugin",
     "llm-gateway",
-    "prompt",
-    "magpie-hooks"
+    "prompt-injection",
+    "opencode",
+    "claude-code",
+    "codex",
+    "gemini-cli"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ksmord/poxian.git"
   },
-  "homepage": "https://github.com/YaoGuaiLi/hangong",
+  "homepage": "https://github.com/ksmord/poxian",
+  "bugs": {
+    "url": "https://github.com/ksmord/poxian/issues"
+  },
   "magpie": {
     "hooks": "./poxian.hooks.mjs",
     "options": {
@@ -100,7 +107,8 @@
     "check:vars": "node scripts/check-vars.mjs",
     "check:runtime": "node scripts/verify-runtime.mjs normal",
     "check:page-order": "node scripts/check-page-order.mjs",
-    "check:tone": "node scripts/check-tone.mjs"
+    "check:tone": "node scripts/check-tone.mjs",
+    "release": "node scripts/publish-release.mjs"
   },
   "main": "./poxian.hooks.mjs",
   "exports": {
