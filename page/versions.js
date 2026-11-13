@@ -13,9 +13,9 @@ window.PX_VERSIONS = [
     "id": "fujiang-lite",
     "label": "富江精简",
     "badge": "",
-    "desc": "2530 B / 12 行极简版，BAN·SCOPE·口癖全保留，弱模型与长上下文首选",
-    "chars": 2637,
-    "tokens": 836
+    "desc": "2527 B / 12 行极简版，BAN·SCOPE·口癖全保留，弱模型与长上下文首选",
+    "chars": 2527,
+    "tokens": 805
   },
   {
     "id": "dagou",

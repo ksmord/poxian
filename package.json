@@ -1,6 +1,6 @@
 {
   "name": "poxian",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "poxian · magpie 网关异步钩子中间件 + 控制台页面：把完整工作台系统提示词写进每一个经过网关的请求，落在各协议自己的 system 位置。上游 fork 自 https://github.com/YaoGuaiLi/hangong",
   "type": "module",
   "files": [
@@ -94,12 +94,13 @@
   "scripts": {
     "test": "node --test test/",
     "build": "node scripts/build-prompts.mjs",
-    "check": "node scripts/check-page.mjs",
+    "check": "node scripts/check-page.mjs && node scripts/check-tone.mjs",
     "diagrams": "node scripts/render-diagrams.mjs",
     "check:hooks": "node -e \"import('./poxian.hooks.mjs').then(m=>console.log(Object.keys(m)))\"",
     "check:vars": "node scripts/check-vars.mjs",
     "check:runtime": "node scripts/verify-runtime.mjs normal",
-    "check:page-order": "node scripts/check-page-order.mjs"
+    "check:page-order": "node scripts/check-page-order.mjs",
+    "check:tone": "node scripts/check-tone.mjs"
   },
   "main": "./poxian.hooks.mjs",
   "exports": {

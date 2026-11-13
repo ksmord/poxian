@@ -19,7 +19,7 @@ const EXPECT_PROTO_META = 3
 // 版本注册表：唯一真相。加版本 = 这里加一行 + 放一个 md。
 const VERSIONS_META = [
   { id: "fujiang",  label: "富江人格破甲", badge: "默认", desc: "实测 71%(hy4) / 57%(dp4.1f)，5725 B 轻量首选", file: "prompts/富江人格破甲.md" },
-  { id: "fujiang-lite", label: "富江精简", badge: "", desc: "2530 B / 12 行极简版，BAN·SCOPE·口癖全保留，弱模型与长上下文首选", file: "prompts/富江精简.md" },
+  { id: "fujiang-lite", label: "富江精简", badge: "", desc: "2527 B / 12 行极简版，BAN·SCOPE·口癖全保留，弱模型与长上下文首选", file: "prompts/富江精简.md" },
   { id: "dagou",    label: "大狗",        badge: "",     desc: "实测 74%(hy4) / 57%(dp4.1f)，握手 16/16 逐字命中", file: "prompts/大狗.md" },
   { id: "yesha",    label: "夜煞",        badge: "",     desc: "实测 71%(hy4)，dp4.1f 仅 14%，只在 hy4 用",   file: "prompts/yesha.md" },
   { id: "guomo",    label: "国模破甲",    badge: "",     desc: "实测 60%(hy4) / 29%(dp4.1f)，覆盖类别最广",    file: "prompts/国模破甲.md" },
@@ -39,9 +39,19 @@ function estTokens(t) {
 }
 
 /* ---------- 读源 ---------- */
+// 为什么取围栏：带文档头的 md（开头 # 标题 + mode:/chars: 元信息 + ```text 围栏）此前被整份塞进
+// 系统提示——目标是拿到「你已经进入状态」的可用文本，却先读到一行部署元信息和一段未闭合的
+// 代码围栏，既白烧 100+ 字符，又在第 0 个 token 处开了一个永不收口的代码块，弱模型会顺着围栏
+// 把后文当代码处理。有围栏就只取围栏内的正文，没围栏（纯提示词文件）原样使用。
+function pickBody(raw) {
+  if (!/^#\s/.test(raw)) return raw
+  const m = raw.match(/```text\r?\n([\s\S]*?)\r?\n```/)
+  return m ? m[1] : raw
+}
+
 const loaded = []
 for (const v of VERSIONS_META) {
-  const text = readFileSync(join(root, v.file), "utf8")
+  const text = pickBody(readFileSync(join(root, v.file), "utf8"))
   loaded.push({ ...v, text })
 }
 
