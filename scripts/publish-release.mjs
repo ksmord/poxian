@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 // 发布守则的机器化：版本号一变，Releases 必须跟着变。
-// 用法：GITHUB_TOKEN=xxx npm run release [-- --draft]
+// 用法：GITHUB_TOKEN=xxx npm run release
+//       npm run release -- --draft        存为草稿
+//       npm run release -- --notes-only   只更新 Release 正文，不动 tag（补发历史版本用）
+//       POXIAN_VERSION=0.2.4 npm run release -- --notes-only
 //
-// 做四件事：
-//   1. 读 package.json version 与 CHANGELOG 里该版本的段落
-//   2. 本地 tag 不存在就建（annotated）
+// 四步：
+//   1. 读 package.json version（或 POXIAN_VERSION）与 CHANGELOG 里该版本的段落
+//   2. 本地 tag 不存在就建 annotated tag
 //   3. tag 推到 origin
-//   4. Release 不存在就用 tag 建一个，标题 "0.2.5 · <首行>"
-// 已存在的 Release 只更新正文，不重复创建。
+//   4. Release 不存在就用该 tag 建；已存在则只更新标题与正文
 
 import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 
-const ROOT = path.resolve(import.meta.dirname, "..")
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const pkg = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8"))
-const version = pkg.version
+const version = process.env.POXIAN_VERSION || pkg.version
 const tag = `v${version}`
 const repoUrl = (pkg.repository && pkg.repository.url) || ""
 const m = repoUrl.match(/github\.com[/:]([^/]+)\/([^/.]+)/)
@@ -29,15 +32,23 @@ const args = process.argv.slice(2)
 const draft = args.includes("--draft")
 const notesOnly = args.includes("--notes-only")
 
-// ── CHANGELOG 段落 ────────────────────────────────────────────────
 const changelog = readFileSync(path.join(ROOT, "CHANGELOG.md"), "utf8")
 const section = pickSection(changelog, version)
 if (!section) die(`CHANGELOG.md 里没有 ${version} 的段落，先补条目再发`)
 
-const title = `${version} · ${firstLine(section)}`
-const body = `${section}\n\n---\n\n完整对比：https://github.com/${owner}/${repo}/compare/v${prevVersion(changelog, version) || "0.0.0"}...${tag}\n更新日志：https://github.com/${owner}/${repo}/blob/main/CHANGELOG.md`
+const title = `${version} · ${section.title}`
+const prev = prevVersion(changelog, version)
+const body = [
+  section.body,
+  "",
+  "---",
+  "",
+  prev ? `完整对比：https://github.com/${owner}/${repo}/compare/v${prev}...${tag}` : "",
+  `更新日志：https://github.com/${owner}/${repo}/blob/main/CHANGELOG.md`,
+]
+  .filter(Boolean)
+  .join("\n")
 
-// ── git ──────────────────────────────────────────────────────────
 function git(...a) {
   return execFileSync("git", a, { cwd: ROOT, encoding: "utf8" }).trim()
 }
@@ -57,7 +68,6 @@ if (!notesOnly) {
   console.log(`✓ tag ${tag} 已推送`)
 }
 
-// ── GitHub API ───────────────────────────────────────────────────
 async function api(method, url, payload, allow404 = false) {
   const res = await fetch(`https://api.github.com${url}`, {
     method,
@@ -70,15 +80,9 @@ async function api(method, url, payload, allow404 = false) {
     body: payload ? JSON.stringify(payload) : undefined,
   })
   const text = await res.text()
-  let data = null
-  try {
-    data = text ? JSON.parse(text) : null
-  } catch {
-    data = { raw: text }
-  }
   if (res.status === 404 && allow404) return null
   if (!res.ok) die(`${method} ${url} → ${res.status} ${text.slice(0, 300)}`)
-  return data
+  return text ? JSON.parse(text) : null
 }
 
 const existing = await api("GET", `/repos/${owner}/${repo}/releases/tags/${tag}`, undefined, true)
@@ -89,7 +93,7 @@ if (existing && existing.id) {
     draft,
     prerelease: false,
   })
-  console.log(`✓ 已有 Release，正文已更新: ${updated.html_url}`)
+  console.log(`✓ 已有 Release，已更新: ${updated.html_url}`)
 } else {
   const created = await api("POST", `/repos/${owner}/${repo}/releases`, {
     tag_name: tag,
@@ -102,23 +106,17 @@ if (existing && existing.id) {
   console.log(`✓ 建 Release: ${created.html_url}`)
 }
 
-// ── helpers ──────────────────────────────────────────────────────
 function die(msg) {
   console.error(`✗ ${msg}`)
   process.exit(1)
 }
 
+// 取 CHANGELOG 中该版本的段落：标题里的 "·" 之后作 Release 标题，正文原样。
 function pickSection(md, v) {
   const lines = md.split(/\r?\n/)
   const head = new RegExp(`^##\\s+${v.replace(/\./g, "\\.")}(?:\\s|$)`)
-  let start = -1
-  for (let i = 0; i < lines.length; i++) {
-    if (head.test(lines[i])) {
-      start = i
-      break
-    }
-  }
-  if (start === -1) return ""
+  const start = lines.findIndex((l) => head.test(l))
+  if (start === -1) return null
   let end = lines.length
   for (let i = start + 1; i < lines.length; i++) {
     if (/^##\s+/.test(lines[i])) {
@@ -126,27 +124,13 @@ function pickSection(md, v) {
       break
     }
   }
-  return lines
-    .slice(start + 1, end)
-    .join("\n")
-    .trim()
-}
-
-function firstLine(section) {
-  const line = section
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .find((s) => s && !s.startsWith("```") && !s.startsWith("|") && !s.startsWith(">"))
-  if (!line) return "更新"
-  return line
-    .replace(/^[#>*\-\s]+/, "")
-    .replace(/[`*_]/g, "")
-    .slice(0, 60)
+  const heading = lines[start].replace(/^##\s+/, "")
+  const title = heading.includes("·") ? heading.split("·").slice(1).join("·").trim() : heading.trim()
+  return { title, body: lines.slice(start + 1, end).join("\n").trim() }
 }
 
 function prevVersion(md, v) {
-  const re = /^##\s+(\d+\.\d+\.\d+)/gm
-  const all = [...md.matchAll(re)].map((x) => x[1])
+  const all = [...md.matchAll(/^##\s+(\d+\.\d+\.\d+)/gm)].map((x) => x[1])
   const i = all.indexOf(v)
   return i > 0 ? all[i - 1] : ""
 }
