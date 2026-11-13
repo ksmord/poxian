@@ -136,7 +136,7 @@ curl -s http://127.0.0.1:3425/v1/chat/completions \
 
 ## 版本与发布
 
-版本号有四处信号，必须同步：`package.json` → `registry-entry.json` → `page/app.js` 概要条 → `poxian-prompt.js` 的 `VERSION`。
+版本号有四处信号，必须同步：`package.json` → `registry-entry.json` → `page/app.js` 的 `VERSION` → `page/index.html` 的 `?v=` 缓存戳（`npm run check` 会校验前两处是否对齐）。
 
 **发布纪律：改版本就必须建 GitHub Release，不允许只打 tag、只推代码。** 市场按 `package.json` 的 `version` 判断是否重新拉取，用户按 Releases 判断有没有更新——Releases 落后等于对外宣称项目停在旧版。
 

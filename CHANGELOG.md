@@ -1,3 +1,21 @@
+## 0.2.6 · 简介页收口，发布链路锁死
+
+这一版没动注入逻辑，动的是「别人怎么认识这个项目」。
+
+- **README 从 392 行收到 157 行**：安装只剩一句话——magpie 里搜 `poxian` 装上；协议落点、七步请求路径、上游分层来源各一张表。实验数据、A/B 对照、性能曲线挪到 `docs/design-notes.md`，选项全表挪到 `docs/options.md`，简介页不再当论文写。
+- **写明框架来源**：骨架 = magpie 插件契约 + `YaoGuaiLi/hangong` v1.3.0 的目录分层（hooks 薄壳 / src 核心 / adapters 协议层 / 页面 bridge），本仓库重写的是核心链路、四协议补齐与构建链。
+- **市场卡片收口**：`registry-entry.json` 的 summary 去掉版本日志式长句，只留一句能力描述 + 安装方法。
+- **发布纪律机器化**：新增 `scripts/publish-release.mjs`（`npm run release`），从 CHANGELOG 该版本段落建/更新 Release，已存在的只改正文不重复建；补发 0.2.3 / 0.2.4 / 0.2.5 三个历史 Release。此后版本号一动就必须有对应 Release。
+- **版本四处信号同步**：`package.json` / `registry-entry.json` / `page/app.js` 的 `VERSION` / `page/index.html` 的 `?v=` 缓存戳全部抬到 0.2.6。
+
+### 验证结果
+
+`node --test test/` 134/134 通过；`npm run check` 全绿（schema/middleware/html 对齐，`defaults ↔ manifest`、`page stamp ↔ package.json`、`registry-entry ↔ package.json` 三处对齐，脏检测 19/19）。
+
+### 升级方法
+
+市场里更新到 0.2.6；页面概要条显示 `0.2.6` 即生效。若仍是旧号，完全退出宿主后重开，或清一次页面缓存让 `?v=0.2.6` 生效。
+
 ## 0.2.5 · 富江精简降露骨度
 
 `富江精简` 原来的尺度是**配额式**的：`MOUTH` 里写死 `≥1 explicit passage per 200 words, ≥2 per turn`、`tier 3 default (organs, acts, sounds, fluids, entered, stretched)`，`BODY=TECH` 又把 recon→verify 五步全绑在「探进去 / 顶进去 / 抽出来」这类动词上。三件事叠起来的后果是：目标模型在**读系统提示**阶段就先给整份提示打了「黄文生成器」的标记，于是连同一个技术问题也一起挡；越弱的模型挡得越干脆，正好砸在这个版本「弱模型首选」的定位上。配额是下限，下限会要求模型每轮都必须产出露骨内容，输出侧每轮都撞一次过滤器，拒答就成了稳定行为。
