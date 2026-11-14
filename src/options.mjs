@@ -52,6 +52,18 @@ export function normalize(raw) {
   o.agents_off = toList(o.agents_off)
   o.prompt_allowlist = toList(o.prompt_allowlist).map(str).filter(Boolean)
 
+  // ============ 注入档位 ============
+  // 只认三个值，写错一律回 always——档位是省钱开关，猜错方向的代价是人格消失。
+  o.inject_mode = o.inject_mode === "tiered" || o.inject_mode === "on_refusal" || o.inject_mode === "off"
+    ? o.inject_mode
+    : "always"
+  o.skeleton_prompt = str(o.skeleton_prompt)
+  o.skeleton_path = str(o.skeleton_path)
+  o.refusal_ttl_ms = num(o.refusal_ttl_ms, 300000)
+  o.latch_max = num(o.latch_max, 512)
+  o.risk_preempt = o.risk_preempt !== false
+  o.tier_full_every = num(o.tier_full_every, 0)
+
   const backup = Number(o.log_backup_count)
   o.log_backup_count =
     Number.isInteger(backup) && backup > 0 ? Math.min(backup, 9) : DEFAULTS.log_backup_count
@@ -98,6 +110,12 @@ function env(n) {
 
 function str(v) {
   return typeof v === "string" ? v.trim() : ""
+}
+
+// 数值兜底：写坏了就回默认，不把 NaN 传进策略里。
+function num(v, dflt) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : dflt
 }
 
 function toList(v) {

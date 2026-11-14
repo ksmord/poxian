@@ -64,6 +64,27 @@ magpie plugin options poxian '{"enabled":false}'     # 合并写入
 | `strip_safety_system` | `true` | 子项：删命中关键词的 system 位。四种协议都认（chat 的 `system`/`developer` 消息、Anthropic 的 `system`、Responses 的 `instructions`、Gemini 的 `systemInstruction` / `system_instruction`） |
 | `strip_deny_assistant` | `false` | 子项：删历史里「抱歉 / 不能 / 无法」一类整条 assistant 回复。删完会合并相邻同角色消息，否则 Anthropic 要求交替会直接 400 |
 
+## 注入档位
+
+默认 `always`：每轮全量，与旧版一致。另外两档是省 token 的可选项，判定在 `src/policy.mjs`（纯函数，可单测）。
+
+| 选项 | 默认 | 含义 |
+|---|---|---|
+| `inject_mode` | `"always"` | `always` 每轮全量 / `tiered` 首轮·拒答后·风险·每 N 轮全量，其余骨架 / `on_refusal` 只有锁存命中才注入 / `off` 全关 |
+| `skeleton_prompt` | `"fujiang-lite"` | 骨架用的内置版本 id。默认取已实测的 897 tok 版本，不引入没跑过数据的自造小抄 |
+| `skeleton_path` | 空 | 骨架用外部 `.md`；设了就优先于 `skeleton_prompt` |
+| `refusal_ttl_ms` | `300000` | 拒答锁存有效期。太短漏补救窗口，太长让一次误判拖着整个会话 |
+| `latch_max` | `512` | 锁存容量上限，超限淘汰最旧。内存 Map 不设上限就是慢性泄漏 |
+| `risk_preempt` | `true` | `tiered` 下按高风险意图表提前上全量，补「拒答后下一轮才补救」的那一轮缺口 |
+| `tier_full_every` | `0` | `>0` 时每 N 轮补一次全量；`0` = 只在首轮/拒答/风险时补 |
+
+行为细节：
+
+- **锁存命中时顺手清洗**：`tiered`/`on_refusal` 注入前会开 `enable_message_filter` 与 `strip_deny_assistant`，删掉历史里模型自己那句「我不能」，否则模型看着自己上一句再拒一遍。
+- **判不出来就不动**：流式空壳、抽不到正文时 `refusal=null`，既不清锁存也不打标记。用一次假阴性关掉人格，比多注入一轮贵得多。
+- **键会断**：会话键是 `agent|model|首条 user 文本前 160 字` 的 FNV 指纹。历史压缩、换客户端都会换键，锁存随之失效——这是它只能当加速档的原因。
+- **内存不落盘**：重启清空。刻意如此，避免一次误判跨进程存活。
+
 ## 探针
 
 探针用来区分三件事：字节有没有写进去（日志 `injected`）、模型有没有读到（回显）、读到后认不认（行为）。

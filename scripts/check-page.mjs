@@ -12,6 +12,7 @@ const SOURCES = [
   "../src/payload.mjs",
   "../src/observe.mjs",
   "../src/filter.mjs",
+  "../src/policy.mjs",
 ]
 const mw = SOURCES.map((f) => readFileSync(new URL(f, import.meta.url), "utf8")).join("\n")
 const html = readFileSync(new URL("../page/index.html", import.meta.url), "utf8")
@@ -38,6 +39,15 @@ const ELSEWHERE = [
   "dry_run",
   "max_payload_bytes",
   "prompt_allowlist",
+  // 注入档位：默认 always；tiered / on_refusal 属于「配置文件里改」的实验档，
+  // 不在页面上放开关——一个误点就把人格降成骨架，比多花 token 贵。
+  "inject_mode",
+  "skeleton_prompt",
+  "skeleton_path",
+  "refusal_ttl_ms",
+  "latch_max",
+  "risk_preempt",
+  "tier_full_every",
 ]
 const missing = [...used].filter((k) => !keys.includes(k) && !ELSEWHERE.includes(k))
 const extra = keys.filter((k) => !used.has(k))
