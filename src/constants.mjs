@@ -66,6 +66,24 @@ export const DEFAULTS = {
   prefill_models: [],
   // 没写白名单时，按「先验 + 该路由滑动统计」自动判断开不开。
   prefill_auto: true,
+
+  // ============ 注入档位 ============
+  // always     每轮全量（默认，与 0.2.7 一致）
+  // tiered     首轮 / 拒答后 / 高风险预判 / 每 N 轮 → 全量；其余 → 骨架
+  // on_refusal 只有拒答锁存命中才注入，其余零 token（极端省法，接受首轮裸奔）
+  inject_mode: "always",
+  // 骨架载荷：默认取已实测的 fujiang-lite（897 tok），不引入没跑过数据的第三份小抄。
+  // 留空 = 退回全量，宁可多花 token 也不要在「以为省了」的状态下裸奔。
+  skeleton_prompt: "fujiang-lite",
+  skeleton_path: "",
+  // 拒答锁存有效期。太短会把补救窗口漏掉，太长会让一次误判拖着整个会话走。
+  refusal_ttl_ms: 300000,
+  // 锁存容量上限，超限淘汰最旧；内存里不设上限就是慢性泄漏。
+  latch_max: 512,
+  // 高风险意图预判：在拒答发生之前就把全量挂上，补 on_refusal 补不上的那一轮。
+  risk_preempt: true,
+  // >0 时每隔 N 轮补一次全量（0 = 不按轮补，只在首轮/拒答/风险时补）。
+  tier_full_every: 0,
 }
 
 // 运行态协议号：与 page/versions.js 的 window.PX_EXPECT_PROTO 配对。

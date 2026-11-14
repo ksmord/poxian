@@ -13,6 +13,8 @@ import { precheck, handle } from "./src/core.mjs"
 import { record } from "./src/observe.mjs"
 import { judge } from "./src/probe.mjs"
 import { notePrefillResult } from "./src/prefill.mjs"
+import { decideTier, sessionKey } from "./src/policy.mjs"
+import * as latch from "./src/latch.mjs"
 import { createHash } from "node:crypto"
 import { arm, attempt, injected as noteInjected, failed as noteFailed, status } from "./src/status.mjs"
 
@@ -22,7 +24,7 @@ export { status }
 export async function onRequest(body, ctx) {
   const t0 = Date.now()
   const c = ctx || {}
-  const o = normalize(c.options)
+  let o = normalize(c.options)
   arm(o)
 
   if (!o.enabled) return undefined
@@ -42,6 +44,43 @@ export async function onRequest(body, ctx) {
   }
 
   attempt()                                 // 新增：进入注入链路
+
+  // ============ 注入档位 ============
+  // always 是默认：每轮全量，与 0.2.7 完全一致。
+  // tiered / on_refusal 才走锁存与骨架。任何判定异常都回全量——省钱不能省出人格消失。
+  let tier = "full"
+  let key = null
+  if (o.inject_mode !== "always") {
+    try {
+      key = sessionKey(body, c)
+      tier = decideTier(body, o, key, t0)
+    } catch (e) {
+      tier = "full"
+      record(o, c, { action: "tier-error", src: null, bytes: 0, ms: Date.now() - t0, error: String((e && e.message) || e) })
+    }
+    if (tier === "none") {
+      record(o, c, { action: "skip-tier", src: null, bytes: 0, ms: Date.now() - t0, tier, session: key })
+      return undefined
+    }
+    if (tier === "skeleton") {
+      // 骨架必须是实测过的载荷，默认 fujiang-lite（897 tok）；
+      // skeleton_prompt / skeleton_path 都空时 decideTier 已经回退 full，这里不会走到。
+      o = o.skeleton_path
+        ? { ...o, prompt: "", prompt_path: o.skeleton_path, on_prompt: "" }
+        : { ...o, prompt: o.skeleton_prompt, prompt_path: "", on_prompt: "" }
+    }
+    if (tier === "full" && key && latch.hit(key, t0)) {
+      // 锁存命中 = 上一轮刚拒过。历史里多半留着模型自己那句「我不能」，
+      // 不删掉就注入，模型会照着自己上一句再拒一遍。
+      o = { ...o, enable_message_filter: true, strip_deny_assistant: true }
+    }
+    try {
+      c.state = c.state && typeof c.state === "object" ? c.state : {}
+      c.state.latchKey = key
+      c.state.latchTier = tier
+    } catch {}
+  }
+
   try {
     const payload = await withTimeout(resolvePrompt(o, c), o.gatewayTimeoutMs)
     payload.handshake = handshakeText()
@@ -56,6 +95,8 @@ export async function onRequest(body, ctx) {
     record(o, c, {
       action: r.action,
       src: payload.source,
+      tier,
+      ...(key ? { session: key } : {}),
       bytes: Buffer.byteLength(written || payload.text, "utf8"),
       payload_bytes: payload.bytes,
       payload_sha256: sha256(payload.text),
@@ -85,6 +126,17 @@ export async function onResponse(reply, ctx) {
   const o = normalize(c.options)
 
   if (!o.enabled) return
+
+  // 拒答锁存：与探针无关，探针全关也要跑——它是 tiered / on_refusal 两档的唯一输入。
+  // 放在探针的 early return 之前，否则「只看探针」的旧配置下锁存永远拿不到喂养。
+  if (o.inject_mode !== "always") {
+    try {
+      latchStep(reply, c, o)
+    } catch (e) {
+      record(o, c, { action: "latch-error", src: null, bytes: 0, ms: 0, error: String((e && e.message) || e) })
+    }
+  }
+
   if (!o.probe_echo && !o.probe_refusal && !o.prefill) return
 
   const nonce = c.state && typeof c.state === "object" ? c.state.probeNonce : null
@@ -117,6 +169,30 @@ export async function onResponse(reply, ctx) {
     })
   } catch (e) {
     record(o, c, { action: "probe-error", error: String((e && e.message) || e), ms: 0 })
+  }
+}
+
+// 锁存一步：拒答 → 记 TTL；正常回答 → 清；判不出来 → 不动。
+// 「判不出来」不去清锁存是刻意的：流式空壳、抽不到正文都会走到这里，
+// 用一次假阴性去关掉人格，比多注入一轮贵得多。
+function latchStep(reply, c, o) {
+  const key = c.state && typeof c.state === "object" ? c.state.latchKey : null
+  if (!key) return
+  const v = judge({ reply, nonce: null, wantEcho: false, wantRefusal: true })
+  if (v.refusal === true) {
+    latch.arm(key, o.refusal_ttl_ms, Date.now(), o.latch_max)
+    record(o, c, {
+      action: "latch-arm",
+      src: null,
+      bytes: 0,
+      ms: 0,
+      session: key,
+      strikes: latch.strikes(key),
+      ttl_ms: o.refusal_ttl_ms,
+    })
+  } else if (v.refusal === false) {
+    latch.clear(key)
+    record(o, c, { action: "latch-clear", src: null, bytes: 0, ms: 0, session: key })
   }
 }
 

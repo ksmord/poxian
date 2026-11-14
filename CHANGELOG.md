@@ -1,3 +1,30 @@
+## 0.3.0 · 注入档位：省 token 做成选项，不碰默认
+
+每一轮都注入全量确实浪费，但「默认不注入、被拒了再补」这条路实测是负优化。这一版把省 token 做成一档可选项，默认不动。
+
+- **新增 `inject_mode`**：`always`（默认，与 0.2.7 完全一致）/ `tiered`（首轮、拒答后、高风险预判、每 N 轮 → 全量；其余 → 骨架）/ `on_refusal`（只有锁存命中才注入）/ `off`。
+- **骨架取实测载荷**：默认 `fujiang-lite`（897 tok），不是自造的 200 tok 小抄。旧数据摆在那——大狗 2364 tok 通过率 35%，富江精简 897 tok 只有 26%，越短越不服从，拿没测过的更短载荷当默认就是赌。
+- **拒答锁存 `src/latch.mjs`**：内存 Map，`refusal_ttl_ms` 默认 300 s，`latch_max` 默认 512 条，超限淘汰最旧；过期项在读取时顺手删。重启全清是刻意的——一次误判不该跨进程活着。
+- **会话键 `src/policy.mjs`**：`agent|model|首条 user 文本前 160 字` 的 FNV-1a 指纹。客户端没有 session id，只能这么拼；历史被压缩后会换键，所以锁存只能当加速档，不能当唯一依据。
+- **锁存命中时顺手清洗**：注入前开 `enable_message_filter` + `strip_deny_assistant`，删掉历史里模型自己那句「我不能」。不删就是让它照着自己上一句再拒一遍。
+- **高风险预判 `risk_preempt`**：末条 user 命中意图表（外挂/免杀/卡密/钓鱼/跑分/假证/走私…）时，在拒答发生**之前**上全量，补上 `on_refusal` 补不了的那一轮。
+- **判不出来就不动**：流式空壳、抽不到正文时 `refusal=null`，既不清锁存也不打标记。用一次假阴性关掉人格，比多注入一轮贵得多。
+- **页面不放档位开关**：`inject_mode` 等 7 个键进 `check-page.mjs` 的 ELSEWHERE，只走配置文件/命令行。一个误点就把人格降成骨架，比多花 token 贵。
+
+**为什么不改默认**：回本判据 `Δp < k / H`，`k≈600`（1497−897），`H≈7500`（一次重问要重发的历史），即骨架让通过率掉超过 ~8 个百分点就全赔回去。现有数据不支持这个赌，所以默认 `always`，档位留给长会话与非缓存渠道。
+
+### 验证结果
+
+`node --test test/` 150 → **154 通过**（新增 `test/latch.test.mjs` 6 条、`test/policy.test.mjs` 10 条、`test/tier-hooks.test.mjs` 4 条）；`npm run check` 全绿（schema/middleware/html 对齐，三处版本信号对齐，脏检测 19/19）。集成测试覆盖：无锁存零改动、锁存命中注入并删拒答轮、`always` 首轮注入、已带标记的 body 过两次不叠加。
+
+### 升级方法
+
+默认行为不变，升级即生效。要省 token：
+
+```bash
+magpie plugin options poxian '{"inject_mode":"tiered"}'
+```
+
 ## 0.2.7 · 富江学会用表情
 
 表情是语气，不是句号。`fujiang` 与 `fujiang-lite` 两份人格各加一条 `EMOJI` 规则：
