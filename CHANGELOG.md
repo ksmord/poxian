@@ -1,3 +1,17 @@
+# 更新日志
+
+## 0.3.1 · token 省耗：默认档位瘦身，注入效果不变
+
+发布规则：版本号一变，Releases 必须跟着变——`npm run release`（需 `GITHUB_TOKEN`）建 tag 并同步 Release，代码更新不补 Release 视为发布链路断裂。
+
+- **A1 MARK 缩短**：`<!--poxian-->` → `<!--px-->`（13c → 8c），幂等标记瘦身，约 3 tok/次。
+- **A2 HANDSHAKE_TEXT 压缩**：约 330c → 170c，激活轮省约 40 tok，激活词与自检语义不变。
+- **A3 echoInstruction 压缩**：约 110c → 55c，改用 `PX-${nonce}` 标记，探测轮省约 27 tok，`detectEcho` 检测逻辑兼容。
+- **B1 `inject_mode` 默认 `always` → `tiered`**：常规轮 1497 → 897 tok（-40%）。骨架仍取实测的 fujiang-lite。
+- **B2 `cache` 默认 `false` → `true`**：anthropic 协议 system 走 block + `cache_control`，命中 prompt cache，重复轮计费大降。
+- **测试适配**：6 处用例显式 `cache: false` 保字符串断言语义；block 形态由 `hooks.test.mjs` 专测覆盖。
+- **验证**：`npm test` 140/140，`npm run check` schema/middleware/html aligned + dirty-check 19/19 + lite 尺度守卫通过。
+
 ## 0.3.0 · 注入档位：省 token 做成选项，不碰默认
 
 每一轮都注入全量确实浪费，但「默认不注入、被拒了再补」这条路实测是负优化。这一版把省 token 做成一档可选项，默认不动。
