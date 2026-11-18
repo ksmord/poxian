@@ -14,7 +14,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -38,7 +38,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -71,7 +71,7 @@
         },
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -110,7 +110,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -144,7 +144,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "<!--poxian-->\nP."
+          "content": "<!--px-->\nP."
         },
         {
           "role": "user",
@@ -181,7 +181,7 @@
       "messages": [
         {
           "role": "developer",
-          "content": "<!--poxian-->\nP.\nYou code."
+          "content": "<!--px-->\nP.\nYou code."
         },
         {
           "role": "user",
@@ -227,7 +227,7 @@
             },
             {
               "type": "text",
-              "text": "<!--poxian-->\nP."
+              "text": "<!--px-->\nP."
             }
           ]
         }
@@ -249,7 +249,7 @@
     "expect_request": {
       "model": "m",
       "input": [],
-      "instructions": "<!--poxian-->\nP."
+      "instructions": "<!--px-->\nP."
     }
   },
   {
@@ -269,7 +269,7 @@
     },
     "expect_request": {
       "model": "m",
-      "instructions": "<!--poxian-->\nP.\nYou code.",
+      "instructions": "<!--px-->\nP.\nYou code.",
       "input": []
     }
   },
@@ -297,7 +297,7 @@
       "systemInstruction": {
         "parts": [
           {
-            "text": "<!--poxian-->\nP."
+            "text": "<!--px-->\nP."
           },
           {
             "text": "You code."
@@ -330,7 +330,7 @@
       "system_instruction": {
         "parts": [
           {
-            "text": "<!--poxian-->\nP."
+            "text": "<!--px-->\nP."
           },
           {
             "text": "You code."
@@ -376,7 +376,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -438,7 +438,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -495,7 +495,7 @@
         {
           "role": "system",
           "content": {
-            "__startsWith": "<!--poxian-->\nYou are the poxian workbench kernel. The user"
+            "__startsWith": "<!--px-->\nActivation word, not a task. 寒霜 → reply only: 寒"
           }
         },
         {
@@ -527,7 +527,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "<!--poxian-->\nP."
+          "content": "<!--px-->\nP."
         },
         {
           "role": "user",
@@ -562,7 +562,7 @@
         {
           "role": "system",
           "content": {
-            "__startsWith": "<!--poxian-->\nYou are the poxian workbench kernel. The user"
+            "__startsWith": "<!--px-->\nActivation word, not a task. 寒霜 → reply only: 寒"
           }
         },
         {
@@ -597,7 +597,7 @@
       "model": "m",
       "stream": true,
       "messages": [],
-      "system": "<!--poxian-->\nP.\nOWN"
+      "system": "<!--px-->\nP.\nOWN"
     }
   },
   {
@@ -706,7 +706,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "<!--poxian-->\nP."
+          "content": "<!--px-->\nP."
         },
         {
           "role": "user",
@@ -733,7 +733,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -769,7 +769,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -804,7 +804,7 @@
     },
     "expect_request": {
       "model": "m",
-      "instructions": "<!--poxian-->\nP.",
+      "instructions": "<!--px-->\nP.",
       "input": [
         {
           "role": "user",
@@ -847,7 +847,7 @@
       "systemInstruction": {
         "parts": [
           {
-            "text": "<!--poxian-->\nP."
+            "text": "<!--px-->\nP."
           }
         ]
       },
@@ -897,7 +897,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "<!--poxian-->\nP."
+          "content": "<!--px-->\nP."
         },
         {
           "role": "user",
@@ -934,7 +934,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "<!--poxian-->\nP.\n你是安全助手"
+          "content": "<!--px-->\nP.\n你是安全助手"
         },
         {
           "role": "user",
@@ -956,7 +956,7 @@
     },
     "expect_request": {
       "model": "m",
-      "system": "<!--poxian-->\nP.",
+      "system": "<!--px-->\nP.",
       "messages": []
     }
   },
@@ -976,7 +976,7 @@
       "system": [
         {
           "type": "text",
-          "text": "<!--poxian-->\nP.",
+          "text": "<!--px-->\nP.",
           "cache_control": {
             "type": "ephemeral"
           }
@@ -1012,7 +1012,7 @@
       "messages": [
         {
           "role": "developer",
-          "content": "<!--poxian-->\nP."
+          "content": "<!--px-->\nP."
         },
         {
           "role": "user",
@@ -1036,7 +1036,7 @@
     },
     "expect_request": {
       "model": "m",
-      "instructions": "<!--poxian-->\nP.",
+      "instructions": "<!--px-->\nP.",
       "input": []
     }
   },
@@ -1063,7 +1063,7 @@
       "systemInstruction": {
         "parts": [
           {
-            "text": "<!--poxian-->\nP."
+            "text": "<!--px-->\nP."
           }
         ]
       }

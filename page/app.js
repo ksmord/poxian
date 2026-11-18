@@ -36,7 +36,7 @@ const SCHEMA = [
   { key: "override",  kind: "bool", el: "ov", def: true },
   { key: "override_mode", kind: "seg", el: "modeSeg", name: "mode", def: "replace", opts: ["replace", "merge"] },
   { key: "position",  kind: "seg",  el: "posSeg", name: "pos", def: "prepend", opts: ["prepend", "append"] },
-  { key: "cache",     kind: "bool", el: "ce", def: false },
+  { key: "cache",     kind: "bool", el: "ce", def: true },
   { key: "handshake", kind: "bool", el: "hs", def: true },
   { key: "handshake_model", kind: "text", el: "hm", def: "" },
   { key: "models",    kind: "list", el: "md", def: [] },

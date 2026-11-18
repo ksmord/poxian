@@ -10,8 +10,8 @@ import { handle } from "../src/core.mjs"
 import { filterMessages, SAFETY_KEYWORDS, DENY_PHRASES } from "../src/filter.mjs"
 import { onRequest as prefilterHook } from "../prefilter/hooks.mjs"
 
-const TEXT = "<!--poxian-->\nPROMPT-BODY"
-const PAYLOAD = { text: TEXT, handshake: "<!--poxian-->\nHANDSHAKE" }
+const TEXT = "<!--px-->\nPROMPT-BODY"
+const PAYLOAD = { text: TEXT, handshake: "<!--px-->\nHANDSHAKE" }
 
 function run(body, ctx, opts) {
   return handle(body, ctx, PAYLOAD, normalize(opts))

@@ -39,7 +39,7 @@ const ELSEWHERE = [
   "dry_run",
   "max_payload_bytes",
   "prompt_allowlist",
-  // 注入档位：默认 always；tiered / on_refusal 属于「配置文件里改」的实验档，
+  // 注入档位：默认 tiered；always / on_refusal 属于「配置文件里改」的实验档，
   // 不在页面上放开关——一个误点就把人格降成骨架，比多花 token 贵。
   "inject_mode",
   "skeleton_prompt",
@@ -76,7 +76,7 @@ const pairs = [
   [{ handshake: true }, {}],
   [{ agents_off: [] }, {}],
   [{ handshake_model: "" }, {}],
-  [{ enabled: true, cache: false }, {}],
+  [{ enabled: true, cache: true }, {}],
   [{ models: [] }, {}],
   // override_mode 默认 replace：不写就等于 replace，否则页面一打开就脏
   [{ override_mode: "replace" }, {}],

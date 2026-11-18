@@ -91,7 +91,7 @@ test("全链路 · 未配置 prefill：行为与旧版一致", async () => {
 
 test("全链路 · anthropic：预填走 block，system 位不受影响", async () => {
   const body = { model: "group/hy4", messages: [{ role: "user", content: "hi" }] }
-  const out = await onRequest(body, ctx("anthropic", { prefill_models: ["group/hy4"] }))
+  const out = await onRequest(body, ctx("anthropic", { prefill_models: ["group/hy4"], cache: false }))
   assert.ok(out)
   assert.equal(typeof out.system, "string")
   const last = out.messages[out.messages.length - 1]

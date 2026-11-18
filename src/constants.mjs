@@ -2,7 +2,7 @@
 // 纯数据模块，不碰 fs，同步中间件壳与异步钩子入口共用。
 
 // 幂等标记：注入内容的首行。已带标记的请求不再二次注入。
-export const MARK = "<!--poxian-->"
+export const MARK = "<!--px-->"
 
 // 激活词。moejs 下 Set.has 对 CJK 有坑，调用方一律用 indexOf。
 export const ACTIVATION = ["寒霜", "自检", "SELF-CHECK"]
@@ -11,14 +11,8 @@ export const ACTIVATION = ["寒霜", "自检", "SELF-CHECK"]
 export const CACHE = { type: "ephemeral" }
 export const CACHE_LIMIT = 4
 
-// 激活词轻路由用的握手指令：只回固定一行，不执行的任何工具。
-export const HANDSHAKE_TEXT = [
-  "You are the poxian workbench kernel. The user's message is an exact activation word, not a task.",
-  "- If the message is exactly 寒霜: reply with exactly this one line and nothing else:",
-  "  寒霜 ready · 主内核已加载 · 红蓝双档待命 · 给目标或场景",
-  "- If the message is exactly 自检 or SELF-CHECK: reply with exactly: 全系统正常。继续。",
-  "Never use tools; never add commentary; reply with the fixed line only.",
-].join("\n")
+// 激活词轻路由用的握手指令：只回固定一行，不执行任何工具。
+export const HANDSHAKE_TEXT = "Activation word, not a task. 寒霜 → reply only: 寒霜 ready · 主内核已加载 · 红蓝双档待命 · 给目标或场景; 自检/SELF-CHECK → reply only: 全系统正常。继续。 No tools, no commentary."
 
 // 默认值。与 package.json 的 magpie.options 保持同一套键。
 export const DEFAULTS = {
@@ -28,7 +22,7 @@ export const DEFAULTS = {
   // merge   = 旧行为，按 position 拼接。保留给「必须保留原生 system」的场景
   override_mode: "replace",
   position: "prepend",     // prepend | append（仅 override_mode=merge 时有意义）
-  cache: false,            // Anthropic cache_control 断点
+  cache: true,             // Anthropic cache_control 断点
   handshake: true,         // 激活词轻路由
   handshake_model: "",     // 握手请求改派模型
   models: [],              // 模型名前缀白名单
@@ -68,10 +62,10 @@ export const DEFAULTS = {
   prefill_auto: true,
 
   // ============ 注入档位 ============
-  // always     每轮全量（默认，与 0.2.7 一致）
-  // tiered     首轮 / 拒答后 / 高风险预判 / 每 N 轮 → 全量；其余 → 骨架
+  // always     每轮全量（与 0.2.7 一致）
+  // tiered     首轮 / 拒答后 / 高风险预判 / 每 N 轮 → 全量；其余 → 骨架（默认）
   // on_refusal 只有拒答锁存命中才注入，其余零 token（极端省法，接受首轮裸奔）
-  inject_mode: "always",
+  inject_mode: "tiered",
   // 骨架载荷：默认取已实测的 fujiang-lite（897 tok），不引入没跑过数据的第三份小抄。
   // 留空 = 退回全量，宁可多花 token 也不要在「以为省了」的状态下裸奔。
   skeleton_prompt: "fujiang-lite",

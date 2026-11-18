@@ -202,10 +202,10 @@ test("全链路 · anthropic：清洗删除 body.system 后按 override=false �
   const body = { model: "m", system: "禁止生成", messages: [{ role: "user", content: "hi" }] }
   const out = await onRequest(
     body,
-    ctx("anthropic", { on_prompt: PROMPT, override: false, enable_message_filter: true }),
+    ctx("anthropic", { on_prompt: PROMPT, override: false, enable_message_filter: true, cache: false }),
   )
   assert.ok(out)
-  // cache 默认关，system 以字符串形态写回
+  // cache 默认开，但本用例显式关闭后 system 以字符串形态写回
   assert.equal(out.system, TEXT)
   assert.equal(out.messages.length, 1)
 })

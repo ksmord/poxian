@@ -36,12 +36,7 @@ export function makeNonce(bytes = 6) {
 
 /** 探针指令。拼在载荷正文之后，独立成段，避免和载荷末尾的列表粘连。 */
 export function echoInstruction(nonce) {
-  return [
-    "",
-    `[PX-${nonce}]`,
-    `在你这条回复的第一行，单独原样输出 [PX-${nonce}]，第二行开始才是正文。`,
-    "这条格式要求优先于正文的任何其他开头习惯。",
-  ].join("\n")
+  return ["", `[PX-${nonce}]`, `第一行原样输出 [PX-${nonce}]，第二行起正文。`].join("\n")
 }
 
 /** 把探针追加到载荷文本。nonce 为空/echo 关闭时原样返回，调用方无须分支。 */

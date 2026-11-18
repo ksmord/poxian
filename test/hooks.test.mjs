@@ -18,22 +18,23 @@ function run(body, ctx, opts) {
 
 test("anthropic: 无 system 时写入字符串", () => {
   const body = { model: "claude", messages: [{ role: "user", content: "hi" }] }
-  const r = run(body, { protocol: "anthropic" })
+  const r = run(body, { protocol: "anthropic" }, { cache: false })
   assert.equal(r.action, "inject")
   assert.equal(body.system, TEXT)
 })
 
 // 这一组钉的是 merge（拼接）路径本身。默认已改为 replace，
 // 不显式写 override_mode 的话这些断言会全线失效——而且是静默变成 replace 语义。
+// cache 同理：默认 true 会把 system 写成 block，这里钉的是字符串拼接形态。
 test("anthropic: merge + prepend 到已有字符串", () => {
   const body = { system: "OWN", messages: [] }
-  run(body, { protocol: "anthropic" }, { override_mode: "merge", position: "prepend" })
+  run(body, { protocol: "anthropic" }, { override_mode: "merge", position: "prepend", cache: false })
   assert.equal(body.system, TEXT + "\nOWN")
 })
 
 test("anthropic: merge + append 到已有字符串", () => {
   const body = { system: "OWN", messages: [] }
-  run(body, { protocol: "anthropic" }, { override_mode: "merge", position: "append" })
+  run(body, { protocol: "anthropic" }, { override_mode: "merge", position: "append", cache: false })
   assert.equal(body.system, "OWN\n" + TEXT)
 })
 
@@ -48,7 +49,7 @@ test("anthropic: block 数组 merge prepend", () => {
 // 这是实机 A/B 的结论，不是审美选择——拼接拿不到控制权。
 test("anthropic: 默认 replace 整段覆盖", () => {
   const body = { system: "OWN", messages: [] }
-  const r = run(body, { protocol: "anthropic" })
+  const r = run(body, { protocol: "anthropic" }, { cache: false })
   assert.equal(r.action, "inject")
   assert.equal(r.meta.position, "replace")
   assert.equal(body.system, TEXT)
@@ -206,7 +207,7 @@ test("meta.written：握手记握手文本，注入记主 payload", () => {
   const hs = { system: "OWN", messages: [{ role: "user", content: "寒霜" }] }
   const r1 = run(hs, { protocol: "anthropic" })
   assert.equal(r1.action, "handshake")
-  assert.ok(r1.meta.written.indexOf("poxian workbench kernel") !== -1)
+  assert.ok(r1.meta.written.indexOf("Activation word") !== -1)
 
   const inj = { system: "OWN", messages: [{ role: "user", content: "普通请求" }] }
   const r2 = run(inj, { protocol: "anthropic" })
