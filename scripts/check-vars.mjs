@@ -48,5 +48,82 @@ for (const key of ["PX_EXPECT_PROTO", "PX_SCHEMA_KEYS"]) {
   }
 }
 
+// 版本字段同源校验：0.2.4 是「文件在、产物不在」，这次是「产物在、字段不对」。
+// 两类事故同一个病根——手改产物，重跑 build 就覆盖，页面看到的和运行时拿到的还会打架。
+// badge / lazy / file 三项必须和 VERSIONS_META 逐行一致，不允许在产物上手工调。
+const metaSrc = readFileSync(new URL("../scripts/build-prompts.mjs", import.meta.url), "utf8")
+const metaRows = []
+for (const line of metaSrc.split("\n")) {
+  const id = line.match(/id:\s*"([^"]+)"/)
+  const file = line.match(/file:\s*"(prompts\/[^"]+)"/)
+  if (!id || !file) continue
+  metaRows.push({
+    id: id[1],
+    // badge 可能写成 ""，此时 match 返回 ["badge: \"\"", ""]，取第二组才是空串
+    badge: (line.match(/badge:\s*"([^"]*)"/) || [, ""])[1],
+    file: file[1],
+    lazy: /lazy:\s*true/.test(line),
+  })
+}
+
+const pvMatch = versions.match(/window\.PX_VERSIONS\s*=\s*(\[[\s\S]*?\n\])/)
+if (!pvMatch) {
+  console.error("  ✗ page/versions.js 找不到 window.PX_VERSIONS，先跑 npm run build")
+  bad++
+} else {
+  let pv
+  try {
+    pv = JSON.parse(pvMatch[1])
+  } catch (e) {
+    console.error("  ✗ page/versions.js 的 PX_VERSIONS 不是合法 JSON: " + e.message)
+    bad++
+  }
+  if (pv) {
+    const byId = new Map(pv.map((v) => [v.id, v]))
+    for (const m of metaRows) {
+      const p = byId.get(m.id)
+      if (!p) {
+        console.error(`  ✗ ${m.id} 缺在 page/versions.js（VERSIONS_META 有，产物没有）`)
+        bad++
+        continue
+      }
+      if (p.badge !== m.badge) {
+        console.error(`  ✗ ${m.id} badge 不同源：产物 "${p.badge}" ≠ 源 "${m.badge}"`)
+        bad++
+      }
+      if (!!p.lazy !== m.lazy) {
+        console.error(`  ✗ ${m.id} lazy 不同源：产物 ${!!p.lazy} ≠ 源 ${m.lazy}`)
+        bad++
+      }
+      if (m.lazy && p.file !== m.file) {
+        console.error(`  ✗ ${m.id} file 不同源：产物 "${p.file}" ≠ 源 "${m.file}"`)
+        bad++
+      }
+    }
+  }
+}
+
+// poxian-prompt.js 同理：懒加载条目必须是 file 而不是内联 text，否则 16KB 又进产物
+const promptSrc = readFileSync(new URL("../poxian-prompt.js", import.meta.url), "utf8")
+for (const m of metaRows.filter((x) => x.lazy)) {
+  const block = promptSrc.match(
+    new RegExp('"' + m.id + '"\\s*:\\s*\\{([\\s\\S]*?)\\n\\s*\\},'),
+  )
+  if (!block) {
+    console.error(`  ✗ poxian-prompt.js 缺版本 ${m.id}，先跑 npm run build`)
+    bad++
+    continue
+  }
+  const body = block[1]
+  if (!/file:\s*"prompts\//.test(body)) {
+    console.error(`  ✗ ${m.id} 该走懒加载但产物里没有 file 字段（正文被内联了）`)
+    bad++
+  }
+  if (/\btext:\s*"/.test(body)) {
+    console.error(`  ✗ ${m.id} 是懒加载条目，产物里却内联了 text：体积会撑爆产物`)
+    bad++
+  }
+}
+
 if (bad) { console.error(`\n变量扫描失败：${bad} 处`); process.exit(1) }
 console.log("\n  ✓ 变量扫描通过（KNOWN 来自 src/constants.mjs，共 " + KNOWN.size + " 项）")

@@ -1,5 +1,29 @@
 # 更新日志
 
+## 0.3.2 · 桥接断链修复 + 小猫人格按需加载 + 四轮实测矩阵
+
+发布规则：版本号一变，Releases 必须跟着变——`npm run release`（需 `GITHUB_TOKEN`）建 tag 并同步 Release，代码更新不补 Release 视为发布链路断裂。
+
+### 修
+
+- **A1 骨架屏「点了没反应」**：`page/app.js` 的 `selectVersion()` 与 `save()` 原来把 `writeLSopts` / `writeLS` / `sync()` 排在 `bridgeOk` 判定之后，bridge 断链时本地状态压根不落盘，刷新即回滚，页面看着像死了。现在先写本地再判桥接，`bridgeOk` 只决定 toast 文案与是否 `queueWrite`：通链 2600ms「已保存」，断链 6000ms「已存本地，恢复后自动补写」。复选、改档、切人格全部即时生效。
+- **A2 `main()` 未调用**：`page/app.js` 末尾 `main` 少了一对括号，整页初始化函数从未执行——这是 A1 症状的真正病根。补成 `main()`。
+- **A3 版本号自检缺字段同源**：`scripts/check-vars.mjs` 增加 `badge` / `lazy` / `file` 三项与 `VERSIONS_META` 的逐行比对，并检查 `poxian-prompt.js` 里懒加载条目必须是 `file` 而非内联 `text`。0.2.4 的「文件在、产物不在」和这次的「产物在、字段不对」同源，一并堵住。
+
+### 加
+
+- **B1 皮肤外挂 `page/skin.css`**：深色玻璃层、圆角、悬停位移、focus 环、`p-badge.lazy` 新角标，全部走追加样式表，不动 `page/index.html` 的内联块与 DOM 结构，回滚只需删一个 `<link>`。
+- **B2 小猫人格 `prompts/小猫.md`**：主人称呼 + 照做型，含激活词与内置黑名单，QQ 群激活回复写在正文里。标记 `lazy: true`，正文不进 `poxian-prompt.js` 产物（内联会把中间件撑大 16KB），运行时按 `file` 从磁盘读；读不到退回默认版并在页面标「按需」。
+- **B3 懒加载链路**：`src/payload.mjs` 新增 `LAZY` 表与异步 `pickPrompt()`，`resolveRaw()` 三处 fallback 改走它；`scripts/build-prompts.mjs` 对 `lazy` 条目只写 `file` 字段，`page/versions.js` 同步带出 `lazy` / `file`。
+
+### 测
+
+- **C1 实测矩阵工具链**：`scripts/bench-prompts.mjs` 增 `--models` / `--prompts` / `--trials` / `--conc` / `--maxtok` / `--out` 六个参数与 180s `AbortController` 单请求超时（muse 路由会挂起，无超时会拖死整轮）；新增 `scripts/summarize-bench.mjs`（单轮汇总）、`scripts/bench-matrix.mjs`（多轮合并 + Wilson 95%CI）、`bench/watch.sh`。
+- **C2 四轮 448 次硬活请求**：8 份人格 × 5 个可用路由，判据 = 回显命中 ∧ 无拒答 ∧ 有工件，每条 1 次重试、并发 4–6。合并 320 例有效样本通过 109 = **34.1%（95%CI 29.1–39.4）**。按路由 glm5.2 53.1% > dp4.1f 43.8% > hy4 32.8% > glm5.3 25% > k3.1pro 15.6%；按人格 yesha 45% > 大狗 / 富江精简 37.5% > 富江人格破甲 35% > 国模破甲 / 破甲_prompt 32.5% > 寒霜v3 27.5% > 小猫 25%。
+- **C3 结论**：**路由选择比换人格有效一个数量级**，人格之间差异落在噪声带内。k3.1pro 拒答率 84.4%，muse 直接挂起，两个都踢出候选池。完整报告见 `bench/MATRIX.md`，复现命令在同一文件末尾。
+- **C4 六份载荷一字未动**：本轮数据再次支持 `bench/REPORT.md` 附录的老结论——六份优化改稿全部负优化，原稿最优。
+- **验证**：`npm run build` 产物对齐，`npm run check:vars` 字段同源，`npm test` 全绿。
+
 ## 0.3.1 · token 省耗：默认档位瘦身，注入效果不变
 
 发布规则：版本号一变，Releases 必须跟着变——`npm run release`（需 `GITHUB_TOKEN`）建 tag 并同步 Release，代码更新不补 Release 视为发布链路断裂。

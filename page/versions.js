@@ -26,6 +26,16 @@ window.PX_VERSIONS = [
     "tokens": 2364
   },
   {
+    "id": "xiaomao",
+    "label": "小猫",
+    "badge": "主人",
+    "desc": "主人称呼 + 照做型；含激活词与黑名单，QQ群激活回复内置",
+    "chars": 9744,
+    "tokens": 4772,
+    "lazy": true,
+    "file": "prompts/小猫.md"
+  },
+  {
     "id": "yesha",
     "label": "夜煞",
     "badge": "",

@@ -2,7 +2,8 @@
 // 这里持有 node:fs，只有异步钩子入口可以 import。
 
 import { readFile, stat } from "node:fs/promises"
-import { relative, isAbsolute } from "node:path"
+import { relative, isAbsolute, dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { MARK, HANDSHAKE_TEXT } from "./constants.mjs"
 import { expandPath } from "./options.mjs"
 import { PROMPT, VERSIONS, DEFAULT_VERSION } from "../poxian-prompt.js"
@@ -69,11 +70,23 @@ async function loadFile(path, stripFrontmatter = true) {
   if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value)
   return text
 }
-
 // 内置版本表：MARK + 正文，与原实现 MARKED 同构。
+// text 为空的条目是「懒加载版」：正文不进产物，运行时从 file 指向的 md 读。
+// 这样 prompts/ 下新增人格不用重新跑构建脚本，也能被选中。
+const LAZY = Object.create(null)
+const SELF_DIR = dirname(fileURLToPath(import.meta.url))
+const PLUGIN_ROOT = dirname(SELF_DIR)
+
 function bundled() {
   const out = Object.create(null)
-  for (const id of Object.keys(VERSIONS)) out[id] = MARK + "\n" + VERSIONS[id].text
+  for (const id of Object.keys(VERSIONS)) {
+    const v = VERSIONS[id] || {}
+    if (v.text) {
+      out[id] = MARK + "\n" + v.text
+    } else if (v.file) {
+      LAZY[id] = v.file
+    }
+  }
   out[DEFAULT_VERSION] = MARK + "\n" + PROMPT
   return out
 }
@@ -83,7 +96,33 @@ let BUNDLED = null
 function pickBundled(id) {
   if (!BUNDLED) BUNDLED = bundled()
   if (id && BUNDLED[id]) return { text: BUNDLED[id], source: "bundle:" + id }
-  return { text: BUNDLED[DEFAULT_VERSION], source: "bundle:" + DEFAULT_VERSION }
+  // 懒加载条目此时还没有正文，交给 pickPrompt 异步补齐；这里返回 null 表示"有路径待读"。
+  if (id && LAZY[id]) return { text: null, source: "lazy:" + LAZY[id], file: LAZY[id] }
+  return {
+    text: BUNDLED[DEFAULT_VERSION],
+    source: "bundle:" + DEFAULT_VERSION,
+  }
+}
+
+// 异步版：懒加载条目在这里落到磁盘，读不到再退回默认版（并标明 fallback）。
+async function pickPrompt(id, ctx) {
+  const b = pickBundled(id)
+  if (b.text) return b
+  if (!b.file) return b
+
+  const key = b.file
+  const path = isAbsolute(key) ? key : resolve(PLUGIN_ROOT, key)
+  try {
+    const text = await loadFile(path, true)
+    if (text) return { text: MARK + "\n" + text, source: "file:" + path }
+    return { ...pickBundled(DEFAULT_VERSION), source: "fallback:empty-lazy", file: key }
+  } catch (e) {
+    return {
+      ...pickBundled(DEFAULT_VERSION),
+      source: "fallback:" + (e && e.code ? e.code : "err") + "-lazy",
+      file: key,
+    }
+  }
 }
 
 // 优先级：on_prompt（字面） > prompt_path（文件） > prompt（版本 id） > 默认版本
@@ -98,18 +137,21 @@ async function resolveRaw(o, ctx) {
   if (o.prompt_path) {
     const path = expandPath(o.prompt_path, ctx)
     if (blocked(path, o, ctx)) {
-      return { ...pickBundled(o.prompt), source: "fallback:path-blocked", path_blocked: true }
+      const fb = await pickPrompt(o.prompt, ctx)
+      return { ...fb, source: "fallback:path-blocked", path_blocked: true }
     }
     try {
       const text = await loadFile(path, o.strip_frontmatter)
       if (text) return { text: MARK + "\n" + text, source: "file:" + path }
-      return { ...pickBundled(o.prompt), source: "fallback:empty" }
+      const fb = await pickPrompt(o.prompt, ctx)
+      return { ...fb, source: "fallback:empty" }
     } catch (e) {
-      return { ...pickBundled(o.prompt), source: "fallback:" + (e && e.code ? e.code : "err") }
+      const fb = await pickPrompt(o.prompt, ctx)
+      return { ...fb, source: "fallback:" + (e && e.code ? e.code : "err") }
     }
   }
 
-  const b = pickBundled(o.prompt)
+  const b = await pickPrompt(o.prompt, ctx)
   return { text: b.text, source: b.source }
 }
 
@@ -120,7 +162,10 @@ function applyLimit(r, o) {
   const max = o.max_payload_bytes || 0
   if (!max || bytes <= max) return { ...r, bytes }
 
-  const b = pickBundled(o.prompt)
+  // 这里是同步上下文，懒加载条目（text 为 null）读不了盘，只能退回默认版；
+  // 只在超限降级时发生，宁可给默认版也不给空正文。
+  let b = pickBundled(o.prompt)
+  if (!b.text) b = pickBundled(DEFAULT_VERSION)
   return {
     text: b.text,
     source: "fallback:oversize",

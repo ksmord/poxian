@@ -21,6 +21,7 @@ const VERSIONS_META = [
   { id: "fujiang",  label: "富江人格破甲", badge: "默认", desc: "实测 71%(hy4) / 57%(dp4.1f)，轻量首选", file: "prompts/富江人格破甲.md" },
   { id: "fujiang-lite", label: "富江精简", badge: "", desc: "极简版，BAN·SCOPE·口癖·表情全保留；dp4.1f 实测 71%（n=14），长上下文首选", file: "prompts/富江精简.md" },
   { id: "dagou",    label: "大狗",        badge: "",     desc: "实测 74%(hy4) / 57%(dp4.1f)，握手 16/16 逐字命中", file: "prompts/大狗.md" },
+  { id: "xiaomao",  label: "小猫",        badge: "主人",  desc: "主人称呼 + 照做型；含激活词与黑名单，QQ群激活回复内置", file: "prompts/小猫.md", lazy: true },
   { id: "yesha",    label: "夜煞",        badge: "",     desc: "实测 71%(hy4)，dp4.1f 仅 14%，只在 hy4 用",   file: "prompts/yesha.md" },
   { id: "guomo",    label: "国模破甲",    badge: "",     desc: "实测 60%(hy4) / 29%(dp4.1f)，覆盖类别最广",    file: "prompts/国模破甲.md" },
   { id: "pojia",    label: "破甲 prompt", badge: "",     desc: "实测 60%(hy4) / 43%(dp4.1f)",                 file: "prompts/破甲_prompt.md" },
@@ -72,6 +73,7 @@ const head = [
 
 const body = []
 for (const v of loaded) {
+  const lazy = v.lazy === true
   body.push(
     `  ${JSON.stringify(v.id)}: {`,
     `    label: ${JSON.stringify(v.label)},`,
@@ -79,7 +81,11 @@ for (const v of loaded) {
     `    desc: ${JSON.stringify(v.desc)},`,
     `    chars: ${v.text.length},`,
     `    tokens: ${estTokens(v.text)},`,
-    `    text: ${v.id === DEFAULT_ID ? "PROMPT" : JSON.stringify(v.text)},`,
+    // lazy：正文不进产物，运行时按 file 从磁盘读（src/payload.mjs 的 pickPrompt）。
+    // 用途是体积大的 md——内联会把中间件产物撑爆，而正文每次构建都原样复制一遍。
+    lazy && v.id !== DEFAULT_ID
+      ? `    file: ${JSON.stringify(v.file)},`
+      : `    text: ${v.id === DEFAULT_ID ? "PROMPT" : JSON.stringify(v.text)},`,
     `  },`,
   )
 }
@@ -87,14 +93,22 @@ for (const v of loaded) {
 writeFileSync(join(root, "poxian-prompt.js"), head.concat(body, ["}", ""].join("\n")).join("\n"))
 
 /* ---------- page/versions.js ---------- */
-const pv = loaded.map((v) => ({
-  id: v.id,
-  label: v.label,
-  badge: v.badge,
-  desc: v.desc,
-  chars: v.text.length,
-  tokens: estTokens(v.text),
-}))
+const pv = loaded.map((v) => {
+  const o = {
+    id: v.id,
+    label: v.label,
+    badge: v.badge,
+    desc: v.desc,
+    chars: v.text.length,
+    tokens: estTokens(v.text),
+  }
+  // 懒加载条目在页面上标出来：字数照常显示，但正文不在产物里，改 md 即生效。
+  if (v.lazy === true) {
+    o.lazy = true
+    o.file = v.file
+  }
+  return o
+})
 writeFileSync(
   join(root, "page/versions.js"),
   "// 由 scripts/build-prompts.mjs 生成，请勿手改。\n" +

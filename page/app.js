@@ -8,7 +8,7 @@
 // 表单字段由 SCHEMA 声明：加一个选项只改 SCHEMA 一行 + index.html 一行，
 // 读表单 / 写表单 / 脏检测三处自动跟随，不再各自维护字段清单。
 
-const VERSION = "0.3.1"
+const VERSION = "0.3.2"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
@@ -104,6 +104,7 @@ function buildVersionList() {
         '<div class="p-name">' + v.label +
           (v.id === DEFAULT_VERSION ? ' <span class="p-badge ok">默认</span>' : '') +
           (v.badge && v.id !== DEFAULT_VERSION ? ' <span class="p-badge">' + v.badge + '</span>' : '') +
+          (v.lazy ? ' <span class="p-badge lazy">按需</span>' : '') +
         '</div>' +
         '<div class="p-desc">' + v.desc + '</div>' +
       '</div>' +
@@ -321,9 +322,16 @@ async function selectVersion(ver) {
     next.prompt = ver
   }
 
-  if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
+  // 选中先落本地镜像：桥接判定失败也绝不吞掉这次选择。
+  // bridgeOk 只决定「提示文案 + 是否尝试落盘」，不阻断选择本身。
   loaded = next
   writeLSopts(loaded)
+  writeLS(ver)
+  sync()
+  if (!bridgeOk) {
+    toast("已选中「" + labelOf(ver) + "」，已记在本页镜像；桥接未连上，暂未写入宿主", "warn", 6000)
+    return
+  }
   toast("已切换：「" + labelOf(ver) + "」，下一个请求生效", "ok")
   queueWrite(next)
 }
@@ -421,7 +429,6 @@ function save() {
     return
   }
   const btn = $("save")
-  if (!bridgeOk) { toast("桥接不可用，仅记录在本页面", "warn"); return }
   let next
   try {
     next = formToOptions()
@@ -432,11 +439,18 @@ function save() {
   }
   loaded = next
   writeLSopts(loaded)
+  writeLS(readVersion())
   btn.classList.add("saved")
-  btn.textContent = "已保存"
-  toast("已保存，下一个请求即生效", "ok")
+  btn.textContent = bridgeOk ? "已保存" : "已存本地"
+  toast(
+    bridgeOk
+      ? "已保存，下一个请求即生效"
+      : "已存入本页镜像与宿主无关；桥接连上后会整份写回",
+    bridgeOk ? "ok" : "warn",
+    bridgeOk ? 2600 : 6000
+  )
   setTimeout(() => { btn.textContent = "保存配置"; btn.classList.remove("saved"); sync() }, 1200)
-  queueWrite(next)
+  if (bridgeOk) queueWrite(next)
   sync()
 }
 

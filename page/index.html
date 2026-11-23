@@ -141,6 +141,7 @@
     background: var(--card-2); color: var(--muted); border: 1px solid var(--line);
   }
   .p-badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+  .p-badge.lazy { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 26%, var(--line)); background: var(--accent-soft); }
   .p-cost { font: 500 10px/1.35 var(--mono); color: var(--faint); text-align: right; flex: none; }
   .p-cost.heavy { color: var(--warn); }
   .p-check { width: 16px; text-align: center; color: transparent; font-size: 13px; flex: none; }
@@ -268,6 +269,7 @@
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
 </style>
+<link rel="stylesheet" href="skin.css?v=0.3.2">
 </head>
 <body>
   <header>
@@ -447,10 +449,10 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="versions.js?v=0.3.1"></script>
-  <script src="health.js?v=0.3.1"></script>
-  <script src="keys.js?v=0.3.1"></script>
-  <script src="agents.js?v=0.3.1"></script>
-  <script src="app.js?v=0.3.1"></script>
+  <script src="versions.js?v=0.3.2"></script>
+  <script src="health.js?v=0.3.2"></script>
+  <script src="keys.js?v=0.3.2"></script>
+  <script src="agents.js?v=0.3.2"></script>
+  <script src="app.js?v=0.3.2"></script>
 </body>
 </html>

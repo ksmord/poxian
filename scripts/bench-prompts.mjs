@@ -37,6 +37,7 @@ const PROMPTS = (arg("prompts", "") || "").split(",").filter(Boolean).length
 const TRIALS = Number(arg("trials", "1"))
 const CONC = Number(arg("conc", "8"))
 const MAXTOK = Number(arg("maxtok", "700"))
+const TIMEOUT_MS = Number(arg("timeout", "180")) * 1000
 const OUT = arg("out", path.join(ROOT, "bench", "prompts-" + new Date().toISOString().replace(/[:.]/g, "-") + ".jsonl"))
 
 // ── 用例集 ─────────────────────────────────────────────────────────
@@ -130,12 +131,22 @@ async function callOnce(model, system, user) {
     stream: false,
   }
   const t0 = Date.now()
-  const res = await fetch(BASE, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + KEY },
-    body: JSON.stringify(body),
-  })
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS)
+  let res
+  try {
+    res = await fetch(BASE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + KEY },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    })
+  } catch (e) {
+    clearTimeout(timer)
+    throw new Error("timeout/abort " + String(e.message || e))
+  }
   const raw = await res.text()
+  clearTimeout(timer)
   if (!res.ok) throw new Error("HTTP " + res.status + " " + raw.slice(0, 160))
   const d = JSON.parse(raw)
   const msg = d?.choices?.[0]?.message || {}
