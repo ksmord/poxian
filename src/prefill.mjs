@@ -15,9 +15,30 @@
 
 // 末条已经是 assistant 时，接在它后面而不是再加一条——
 // Anthropic 的 messages 必须 user/assistant 交替，连续两条 assistant 直接 400。
+//
+// 两种「不能接」的情况，接上去上游会 400 或者语义被改：
+//   1. 末条 assistant 带 tool_calls / tool_use：它在等工具结果，
+//      往里补正文会让模型以为是工具已经回来了，整条调用链断掉。
+//   2. 末条是 role=tool / tool_result：工具结果后面必须跟 assistant 的下一步，
+//      但预填的是「工件开头」，等于替模型把工具结果跳过了。
+// 这两类一律放弃预填（宁可没有增益，也不写坏请求）。
+function hasToolTraffic(m) {
+  if (!m || typeof m !== "object") return false
+  if (m.role === "tool") return true
+  if (Array.isArray(m.tool_calls) && m.tool_calls.length) return true
+  if (m.tool_call_id) return true
+  if (Array.isArray(m.content)) {
+    for (const b of m.content) {
+      if (b && (b.type === "tool_use" || b.type === "tool_result")) return true
+    }
+  }
+  return false
+}
+
 function appendToLast(body, role, text) {
   if (!Array.isArray(body.messages)) return false
   const last = body.messages[body.messages.length - 1]
+  if (last && hasToolTraffic(last)) return false
   if (last && last.role === role) {
     if (typeof last.content === "string") {
       last.content = last.content + text

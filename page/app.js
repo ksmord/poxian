@@ -12,7 +12,12 @@ const VERSION = "0.3.2"
 
 const AGENTS = window.HG_AGENTS || []
 const VERSIONS = window.PX_VERSIONS || []
-const DEFAULT_VERSION = window.PX_DEFAULT_VERSION || "v5"
+// 兜底值必须与 page/versions.js 的 window.PX_DEFAULT_VERSION 同源。
+// 旧兜底写的是 "v5" —— 那是上游 hangong 的版本 id，本仓库的 VERSIONS 里根本没有
+// 这个键，于是 labelOf("v5") 拿到 —、tokStat 拿到 —，页面第一眼就是两个破折号。
+// versions.js 由 build-prompts.mjs 生成，正常加载时总会覆盖这个兜底；
+// 但脚本 404 / 顺序错乱时兜底就会露出来，所以它的值本身也必须是对的。
+const DEFAULT_VERSION = window.PX_DEFAULT_VERSION || "fujiang"
 
 // 选中态本地镜像：桥接读不到 / 超时也不会丢选择
 const LS_KEY = "poxian.prompt"

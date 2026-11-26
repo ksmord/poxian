@@ -10,6 +10,7 @@
 // 骨架默认取已经实测过的 fujiang-lite，不引入没有通过率数据的第三份载荷。
 
 import { hit } from "./latch.mjs"
+import { recommend } from "./routefit.mjs"
 
 // 高风险意图：命中就在拒答发生之前把全量挂上。
 // 这是 on_refusal 那一档补不上的洞——拒答之后的下一轮才补，用户已经吃过一次闭门羹。

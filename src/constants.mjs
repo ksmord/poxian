@@ -62,10 +62,22 @@ export const DEFAULTS = {
   prefill_auto: true,
 
   // ============ 注入档位 ============
-  // always     每轮全量（与 0.2.7 一致）
-  // tiered     首轮 / 拒答后 / 高风险预判 / 每 N 轮 → 全量；其余 → 骨架（默认）
+  // always     每轮全量（默认）
+  // tiered     首轮 / 拒答后 / 高风险预判 / 每 N 轮 → 全量；其余 → 骨架
   // on_refusal 只有拒答锁存命中才注入，其余零 token（极端省法，接受首轮裸奔）
-  inject_mode: "tiered",
+  //
+  // 为什么默认必须是 always 而不是 tiered：
+  // 1) 降档等于中途换载荷。实测（2026-11-26）：tiered 下第 1 轮 full，第 2 轮起
+  //    就掉成 skeleton（fujiang-lite, 2.6KB）并一直保持——模型手里的规则集从
+  //    「完整契约」换成「另一份不相干的小抄」，上一轮建立的行为锚被顶掉，
+  //    表现就是「越聊越爱拒」。上游 hangong 是无条件全量，从来没有这个行为。
+  // 2) 本仓库自己的实测就把这个结论钉死了：载荷越短服从率越低
+  //    （大狗 2364 tok → 35%，富江精简 897 tok → 26%）。
+  // 3) README 一直写的是「默认 always」，并明写「把降档设成默认等于拿效果换钱，
+  //    而换亏了」。代码把默认改成 tiered 是文档漂移（ENGINEERING-NOTES §7）的
+  //    反向版本：不是文档没跟上代码，是代码违背了已经论证过的结论。
+  // 省 token 是可选档，用户显式开才生效。
+  inject_mode: "always",
   // 骨架载荷：默认取已实测的 fujiang-lite（897 tok），不引入没跑过数据的第三份小抄。
   // 留空 = 退回全量，宁可多花 token 也不要在「以为省了」的状态下裸奔。
   skeleton_prompt: "fujiang-lite",
@@ -78,6 +90,14 @@ export const DEFAULTS = {
   risk_preempt: true,
   // >0 时每隔 N 轮补一次全量（0 = 不按轮补，只在首轮/拒答/风险时补）。
   tier_full_every: 0,
+
+  // ============ 路由适配 ============
+  // 按 body.model 查 src/routefit.mjs 的观测表，选这条路由上实测最好的载荷。
+  // 依据：bench/MATRIX.md（n=384）里路由是主变量（glm5.2 53.1% vs k3.1pro 15.6%，
+  // 区间不重叠差 37pp），人格是噪声（八份两两 95%CI 全重叠）。
+  // 默认 false，因为**它会覆盖用户手配的 prompt**——显式配置优先于统计推荐。
+  // 开了也只改 prompt / prompt_path，on_prompt（用户当场写的字面载荷）永不覆盖。
+  route_adapt: false,
 }
 
 // 运行态协议号：与 page/versions.js 的 window.PX_EXPECT_PROTO 配对。

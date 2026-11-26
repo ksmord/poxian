@@ -10,3 +10,6 @@ bench/*.log
 
 # 单轮原始报告只留本地，结论进 bench/fujiang-lite.md
 bench/prompts-*.md
+bench/rejudge/
+bench/multiturn/
+bench/prefill/

@@ -73,6 +73,7 @@ export default {
   // （override_mode=replace）下 cache 会静默失效，表现为「开了缓存不生效」。
   // skipSystem=true：旧的 body.system 即将被丢弃，不参与额度计算。
   replace(body, text, { cache } = {}) {
+    if (typeof text !== "string" || !text) return undefined
     const block = { type: "text", text }
     if (cache && hasCacheRoom(body, true)) block.cache_control = CACHE
     body.system = block.cache_control ? [block] : text

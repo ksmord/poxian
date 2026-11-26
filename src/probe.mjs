@@ -21,14 +21,32 @@
 // 返回值被丢弃。所以探针必须是纯观测——这正好是探针该有的语义，
 // 也意味着「检测到拒答就自动重试」这种中转站标配手法在 magpie 上做不到。
 
-import { randomBytes } from "node:crypto"
+// ── 为什么 randomBytes 不在顶层 import ──────────────────────────────
+// magpie 的中间件引擎（bundle 模式）硬约束：只能 import 同目录文件，
+// `node:crypto` 会被拒 → 「cannot resolve module "node:crypto"」整个中间件加载失败。
+//
+// nonce 的用途是「每次注入都不同，别和回复里的数字撞」，不是密钥、不做签名，
+// 所以拿不到 crypto 时退化成 Math.random 完全够用——安全性不降级，
+// 只是少了抗预测性，而这里根本没有需要抗预测的攻击面。
+let _randomBytes = null
+try {
+  const req = typeof require === "function" ? require : null
+  if (req) _randomBytes = req("node:crypto").randomBytes
+} catch {}
+
+function drawBytes(n) {
+  if (_randomBytes) return _randomBytes(n)
+  const out = new Array(n)
+  for (let i = 0; i < n; i++) out[i] = Math.floor(Math.random() * 256)
+  return out
+}
 
 // nonce 用 base32（无 I/O/0/1），避免和回复正文里的数字混淆。
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-/** 生成一枚 6 位探针标记。不可预测：由 crypto 随机源出，同一个载荷每次注入都不同。 */
+/** 生成一枚 6 位探针标记。不可预测：由随机源出，同一个载荷每次注入都不同。 */
 export function makeNonce(bytes = 6) {
-  const buf = randomBytes(bytes)
+  const buf = drawBytes(bytes)
   let out = ""
   for (let i = 0; i < buf.length; i++) out += ALPHABET[buf[i] % ALPHABET.length]
   return out.slice(0, 6)

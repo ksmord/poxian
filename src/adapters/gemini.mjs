@@ -59,7 +59,13 @@ export default {
   },
 
   replace(body, text) {
+    if (typeof text !== "string" || !text) return undefined
     const k = keyOf(body)
+    // 同时存在 camel/snake 两个键时，只清对侧会留下旧的 system 文本继续生效。
+    // 转译层（openai→gemini 之类）经常两个都下发，这里一并清掉。
+    for (const other of ["systemInstruction", "system_instruction"]) {
+      if (other !== k) delete body[other]
+    }
     body[k] = { parts: [{ text }] }
     return body
   },

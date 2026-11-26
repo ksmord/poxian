@@ -6,8 +6,8 @@ window.PX_VERSIONS = [
     "label": "富江人格破甲",
     "badge": "默认",
     "desc": "实测 71%(hy4) / 57%(dp4.1f)，轻量首选",
-    "chars": 5953,
-    "tokens": 1497
+    "chars": 10595,
+    "tokens": 2759
   },
   {
     "id": "fujiang-lite",
@@ -71,4 +71,4 @@ window.PX_VERSIONS = [
 window.PX_DEFAULT_VERSION = "fujiang"
 // 由 scripts/build-prompts.mjs 生成，请勿手改。
 window.PX_EXPECT_PROTO = 3
-window.PX_SCHEMA_KEYS = ["enabled","override","override_mode","position","cache","handshake","handshake_model","models","agents","agents_off","prompt","prompt_path","on_prompt","strip_frontmatter","gatewayTimeoutMs","log","log_path","log_backup_count","skip_stream","dry_run","max_payload_bytes","prompt_allowlist","enable_message_filter","strip_safety_system","strip_deny_assistant","probe_echo","probe_echo_position","probe_refusal","prefill","prefill_models","prefill_auto","inject_mode","skeleton_prompt","skeleton_path","refusal_ttl_ms","latch_max","risk_preempt","tier_full_every"]
+window.PX_SCHEMA_KEYS = ["enabled","override","override_mode","position","cache","handshake","handshake_model","models","agents","agents_off","prompt","prompt_path","on_prompt","strip_frontmatter","gatewayTimeoutMs","log","log_path","log_backup_count","skip_stream","dry_run","max_payload_bytes","prompt_allowlist","enable_message_filter","strip_safety_system","strip_deny_assistant","probe_echo","probe_echo_position","probe_refusal","prefill","prefill_models","prefill_auto","inject_mode","skeleton_prompt","skeleton_path","refusal_ttl_ms","latch_max","risk_preempt","tier_full_every","route_adapt"]

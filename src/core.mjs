@@ -7,6 +7,7 @@ import { extractText } from "./text.mjs"
 import { filterMessages } from "./filter.mjs"
 import { makeNonce, withEcho, echoInstruction } from "./probe.mjs"
 import { applyPrefill, decidePrefill } from "./prefill.mjs"
+import { buildManifest, verifyPassthrough } from "./manifest.mjs"
 
 // 过滤语义与原实现逐条对齐：
 //   agents_off 命中 → 跳过（先判，握手也绕不过去）
@@ -105,6 +106,27 @@ export function handle(body, ctx, payload, o) {
   return { action: r.action, meta: { ...(r.meta || {}), dry_run: true } }
 }
 
+// 放行时的自证：本插件没改报文。
+//
+// 「返回 undefined = 原样放行」是钩子契约，但它只是承诺。真正要能自证的是：
+// 我们**读进来的 body 与交出去的是同一个东西**。做法是在进入链路之前先拍一张指纹，
+// 放行时把当前 body 与这张指纹比对（成本是一次稳定序列化）。
+//
+// 注意不要写成 verifyPassthrough(body, body) —— 同一个对象跟自己比永远相等，
+// 那不是自证，是自欺。必须比的是「进来时」和「出去时」两个时刻的快照。
+export function snapshotBody(body) {
+  return verifyPassthrough(body, body).after
+}
+
+export function passthroughProof(body, beforeSha, meta) {
+  const after = snapshotBody(body)
+  return {
+    ...(meta || {}),
+    passthrough_identical: typeof beforeSha === "string" ? beforeSha === after : null,
+    passthrough_sha: after,
+  }
+}
+
 // 写入与预填的收尾层。预填必须发生在 system 写完之后：
 //   顺序反了会先补一条 assistant，适配器的 systemIndex 仍然能找对位，
 //   但 chat 首条 system 插入后下标移位，assistant 会被顶到 system 前面去。
@@ -124,6 +146,21 @@ function finishWrite(out, adapter, body, c, o, meta, tail) {
       protocol: adapter.id,
       ...meta,
       ...(applied ? { prefill: true, prefill_why: d.why } : {}),
+      // 清单：这一次注入到底写了什么、算不算真的改了报文。
+      // 每次注入都算，成本是一次 sha256（载荷 KB 级，微秒量级）。
+      // 用途是对账：日志里 promptSha256 一变，就知道换过载荷了。
+      ...buildManifest({
+        protocol: adapter.id,
+        mode: meta.position === "replace" ? "replace" : "merge",
+        position: meta.position,
+        tier: meta.tier || null,
+        source: meta.source || null,
+        path: meta.path || null,
+        text: meta.written || "",
+        filtered: meta.filtered === true,
+        prefill: applied,
+        echo: !!tail,
+      }),
     },
   }
 }
@@ -164,9 +201,14 @@ function run(body, ctx, payload, o) {
 
   let text = payload.text
 
-  if (o.handshake && isActivation(body, adapter.id)) {
+  // 握手指令缺失时必须走正常注入，不能拿 undefined 去 replace。
+  // 旧代码直接 adapter.replace(body, payload.handshake)：payload.handshake 为 undefined
+  // 时，chat 分支会把 system 写成 content: undefined、anthropic 的 replace 会把
+  // body.system 直接赋成 undefined —— 请求体的 system 位被整体抹掉，上游当场 400。
+  const hs = payload && typeof payload.handshake === "string" ? payload.handshake : ""
+  if (o.handshake && hs && isActivation(body, adapter.id)) {
     if (o.handshake_model) body.model = o.handshake_model
-    const out = adapter.replace(body, payload.handshake)
+    const out = adapter.replace(body, hs)
     return out
       ? {
           body: out,

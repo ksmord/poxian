@@ -9,11 +9,13 @@
 
 import { normalize } from "./src/options.mjs"
 import { resolvePrompt, handshakeText } from "./src/payload.mjs"
-import { precheck, handle } from "./src/core.mjs"
+import { precheck, handle, snapshotBody, passthroughProof } from "./src/core.mjs"
 import { record } from "./src/observe.mjs"
 import { judge } from "./src/probe.mjs"
 import { notePrefillResult } from "./src/prefill.mjs"
 import { decideTier, sessionKey } from "./src/policy.mjs"
+import { recommend } from "./src/routefit.mjs"
+import { nextRung, retryLedger } from "./src/ladder.mjs"
 import * as latch from "./src/latch.mjs"
 import { createHash } from "node:crypto"
 import { arm, attempt, injected as noteInjected, failed as noteFailed, status } from "./src/status.mjs"
@@ -31,6 +33,13 @@ export async function onRequest(body, ctx) {
 
   // 前置判定先跑：skip-* 类请求连 stat 都不做，直接放行。
   // 旧版是“先解析载荷再过滤”，被 agents_off 挡掉的流量也要白付一次 IO。
+  // 进入链路之前先拍指纹。放行时用它与当前 body 比对，
+// 证明「本插件确实一个字节都没动」——这是 off 语义的地基。
+// 只有开了 dry_run 或日志时才拍，免得热路径上白付一次序列化。
+const beforeSha = o.log || o.dry_run ? snapshotBody(body) : null
+
+  // 前置判定先跑：skip-* 类请求连 stat 都不做，直接放行。
+  // 旧版是“先解析载荷再过滤”，被 agents_off 挡掉的流量也要白付一次 IO。
   const pre = precheck(body, c, o)
   if (pre) {
     record(o, c, {
@@ -38,6 +47,9 @@ export async function onRequest(body, ctx) {
       src: null,
       bytes: 0,
       ms: Date.now() - t0,
+      // 放行也要留证：这一步证明「本插件没有动报文」。
+      // 没有它，任何「关了注入还是被改」的怀疑都无法证伪。
+      ...passthroughProof(body, beforeSha),
       ...(pre.meta || {}),
     })
     return undefined
@@ -81,6 +93,26 @@ export async function onRequest(body, ctx) {
     } catch {}
   }
 
+  // ============ 路由适配（默认关） ============
+  // 依据 bench/MATRIX.md（n=384）：路由是主变量（glm5.2 53.1% vs k3.1pro 15.6%，
+  // 区间不重叠差 37pp），人格是噪声（八份两两 CI 全重叠）。
+  // 同一份载荷换个路由能从 12.5% 跳到 56.3%，所以「按路由换载荷」是已验证的收益方向。
+  //
+  // 为什么默认 false：它会**覆盖用户手配的 prompt**。用户的显式配置优先于我们的统计推荐，
+  // 这条边界不因为数据好看就破。开了之后只改 prompt / prompt_path，不碰任何其他选项，
+  // 且 on_prompt（用户字面载荷）**永不覆盖**——那是用户当场写下的东西，等级最高。
+  // 这里不包 try/catch：recommend() 是纯内存查表（OBSERVED 是常量表，不碰 fs、不发请求），
+  // 不存在可恢复的失败路径。旧版包了一层 catch 把异常吞成 routePick = null，
+  // 结果 `recommend is not defined`（漏 import）潜伏了一整轮：开关看着开了，载荷永远是原配置。
+  // 兜底会让「主流程坏了」表现为「功能没生效」，这比直接抛出去危险得多。
+  let routePick = null
+  if (o.route_adapt === true && !o.on_prompt) {
+    routePick = recommend(String((body && body.model) || c.model || ""))
+    if (routePick) {
+      o = { ...o, prompt: routePick.id, prompt_path: "" }
+    }
+  }
+
   try {
     const payload = await withTimeout(resolvePrompt(o, c), o.gatewayTimeoutMs)
     payload.handshake = handshakeText()
@@ -102,6 +134,9 @@ export async function onRequest(body, ctx) {
       payload_sha256: sha256(payload.text),
       ...(payload.oversize ? { oversize: true, requested_bytes: payload.requested_bytes } : {}),
       ...(payload.path_blocked ? { path_blocked: true } : {}),
+      // 路由适配的决策进日志：事后要能回答「这台机器上为什么用了这份载荷」。
+      // 只记决策不记数据（rate/n 在 routefit 里，日志里重复一遍会随时间失真）。
+      ...(routePick ? { route_pick: routePick.id, route_rate: routePick.rate, route_n: routePick.n } : {}),
       ms: Date.now() - t0,
       ...meta,
     })
@@ -180,15 +215,32 @@ function latchStep(reply, c, o) {
   if (!key) return
   const v = judge({ reply, nonce: null, wantEcho: false, wantRefusal: true })
   if (v.refusal === true) {
-    latch.arm(key, o.refusal_ttl_ms, Date.now(), o.latch_max)
+    const ttl = o.refusal_ttl_ms
+    latch.arm(key, ttl, Date.now(), o.latch_max)
+    const strikes = latch.strikes(key)
+    // 补救阶梯：把「下一轮该上哪一级」算出来并记账。
+    // 网关层不能重发（onResponse 只读），能做的只是让下一轮从更好的起点开始；
+    // 这里算好的 actions 由 record 落盘，供对账与人工复盘使用。
+    let rung = null
+    try {
+      rung = nextRung({
+        model: String((c && c.model) || ""),
+        strikes,
+        hasDeny: true,
+        tier: c.state && c.state.latchTier,
+      })
+    } catch {}
     record(o, c, {
       action: "latch-arm",
       src: null,
       bytes: 0,
       ms: 0,
       session: key,
-      strikes: latch.strikes(key),
-      ttl_ms: o.refusal_ttl_ms,
+      strikes,
+      ttl_ms: ttl,
+      ...(rung ? { rung: rung.level, rung_name: rung.name, rung_actions: rung.actions } : {}),
+      // 名额口径：重试不重复计 injected，这里只把「补救次数」记成 step。
+      ...retryLedger({ attempts: strikes > 0 ? strikes - 1 : 0, recovered: false }),
     })
   } else if (v.refusal === false) {
     latch.clear(key)
