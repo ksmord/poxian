@@ -48,6 +48,9 @@ const ELSEWHERE = [
   "latch_max",
   "risk_preempt",
   "tier_full_every",
+  // 路由适配：默认 false，会覆盖用户手配的 prompt。属「配置文件里改」的实验档，
+  // 页面不放开关——误点一次就把人格换成统计推荐的那份，比多花 token 更难查。
+  "route_adapt",
 ]
 const missing = [...used].filter((k) => !keys.includes(k) && !ELSEWHERE.includes(k))
 const extra = keys.filter((k) => !used.has(k))
