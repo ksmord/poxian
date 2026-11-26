@@ -1,4 +1,28 @@
 # 更新日志
+## 未发布 · 拒答增多的两个机制性根因（2026-11-26）
+
+排查起因：网关实跑中拒答明显偏多。逐层定位到两处，都不是载荷内容问题，是注入机制自身在漏。
+
+### 修
+- **C1 `replace` 没清干净原生 system，注入被顶掉一半**：`override_mode: "replace"` 的语义是「只留我这套」，但实现只换第一条 system 位，其余原样留着。
+  - `chat`：三条 system/developer 的请求，替换后仍留 2 条「原生对齐条款 B/C」（实测见 `.tmp-probe8` 修复前输出）。
+  - `responses`：`instructions` 换了，`input[]` 里 role 为 system/developer 的条目一条没动 —— 该协议有两个 system 位，旧实现只堵前门。
+  - 后果：模型照样读到供应商对齐条款，载荷拿到的是「并列的第二份意见」而不是「唯一规则集」。
+  - 修法：`chat.replace()` 清掉其余 system/developer，`responses.replace()` 清空 `input[]` 内的纯文本 system/developer 项。两处都按 §4 互斥条件保守处理 —— 带 `tool_calls` / `tool_call_id` 的不碰（工具链删了上游 400），`content` 是数组块的不碰（多模态结构拿不准）。
+  - 参照：上游 `qzyfl/magpie-prompt-override` 的 `dropInputRoles`，同一件事。
+  - 验证：`test/adapters-replace.test.mjs` 12 例全绿；端到端四条 system 的请求替换后 system/developer 恰好 1 条，`responses` 的 `input` 内归零。
+
+- **C2 `inject_mode` 默认档把完整载荷降级成骨架，且是断崖式**：0.3.1 的 B1 把默认从 `always` 改成 `tiered`，标题写「注入效果不变」，但改动理由只有「token 省耗」四个字，没有任何实测支撑这句断言。
+  - 实测（`.tmp-probe7`）：`tiered` 下轮数 1 → `full`，轮数 2/3/4/6/8 → **全部 `skeleton`**，并一直保持。骨架是 `fujiang-lite`（2648B），而完整载荷是另一份不相干的人格。
+  - 这不是「少注一点」，是**中途换人**：模型手里的规则集从完整契约换成一份小抄，上一轮建立的行为锚被顶掉，表现为「越聊越爱拒」。
+  - 上游 `YaoGuaiLi/hangong` 是无条件全量，从来没有这个行为。
+  - 本仓库自己的实测早就把这个结论钉死了：载荷越短服从率越低（大狗 2364 tok → 35%，富江精简 897 tok → 26%）；0.3.0 的设计说明原文是「把降档设成默认等于拿效果换钱，而换亏了」。
+  - 修法：默认回 `always`，省 token 保留为显式可选档。理由写进 `src/constants.mjs` 注释，防止再漂。
+  - 验证：默认配置下第 1/2/5/10 轮均为 `full`；显式 `inject_mode: "tiered"` 时降级行为不变（可选档没被删掉）。
+
+### 说明
+- 两处都**没动任何载荷内容**。拒答是机制漏出来的，不是 prompt 写得不够。
+- 全量回归：`node --test test/*.test.mjs` 177/177 通过。
 
 ## 0.3.2 · 桥接断链修复 + 小猫人格按需加载 + 四轮实测矩阵
 
